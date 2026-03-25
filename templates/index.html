@@ -1083,14 +1083,15 @@
     const arrowUp   = `<svg viewBox="0 0 24 24" fill="none" stroke="#00e587" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
     const arrowDown = `<svg viewBox="0 0 24 24" fill="none" stroke="#ff4560" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
 
-    function makeCircles(checks, key) {
+    function makeCircles(checks, key, service) {
         const slots = Array(10).fill(null);
         checks.forEach((c, i) => { slots[i] = c; });
         return slots.map((c, i) => {
             if (!c) return `<div class="check-circle empty"></div>`;
             const up = c[key];
+            const onclick = !up ? `onclick="jumpToLog('${service}','${escHtml(c.time)}')"` : '';
             return `
-                <div class="check-circle ${up ? 'up' : 'down'}" title="${escHtml(c.time)}${c.user ? ' · ' + escHtml(c.user) : ''}">
+                <div class="check-circle ${up ? 'up' : 'down'}" ${onclick} title="${escHtml(c.time)}${c.user ? ' · ' + escHtml(c.user) : ''}">
                     ${up ? arrowUp : arrowDown}
                     <span class="check-circle-time">${escHtml(c.time.slice(0,5))}</span>
                 </div>`;
@@ -1098,9 +1099,9 @@
     }
 
     function renderChecks(checks) {
-        document.getElementById('checks-ssh').innerHTML  = makeCircles(checks, 'ssh_up');
-        document.getElementById('checks-http').innerHTML = makeCircles(checks, 'http_up');
-        document.getElementById('checks-ftp').innerHTML  = makeCircles(checks, 'ftp_up');
+        document.getElementById('checks-ssh').innerHTML  = makeCircles(checks, 'ssh_up',  'SSH');
+        document.getElementById('checks-http').innerHTML = makeCircles(checks, 'http_up', 'HTTP');
+        document.getElementById('checks-ftp').innerHTML  = makeCircles(checks, 'ftp_up',  'FTP');
     }
 
     // ── Users table ───────────────────────────────────────────────────────────
