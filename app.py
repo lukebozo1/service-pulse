@@ -135,9 +135,9 @@ def background_monitor():
     init_db()
     scores = get_latest_points()
     while True:
-        ssh_up, used_user = check_ssh_status()
-        http_up = check_http_status()
-        ftp_up  = check_ftp_status()
+        ssh_up, used_user, ssh_msg = check_ssh_status()
+        http_up, http_msg          = check_http_status()
+        ftp_up, ftp_msg            = check_ftp_status()
 
         current_state["ssh_up"]        = ssh_up
         current_state["http_up"]       = http_up
