@@ -132,10 +132,13 @@ def check_ftp_status():
 
 # --- Background Monitor ---
 def background_monitor():
-    global current_state
+    global current_state, reset_scores_flag
     init_db()
     scores = get_latest_points()
     while True:
+        if reset_scores_flag:
+            scores = {"ssh": 0, "http": 0, "ftp": 0}
+            reset_scores_flag = False
         ssh_up, used_user, ssh_msg = check_ssh_status()
         http_up, http_msg          = check_http_status()
         ftp_up, ftp_msg            = check_ftp_status()
