@@ -46,7 +46,17 @@ def init_db():
                   timestamp TEXT,
                   username TEXT,
                   ssh_up INTEGER,
-                  http_up INTEGER)''')
+                  http_up INTEGER,
+                  ftp_up INTEGER)''')
+    # Migrate existing tables to add ftp columns if missing
+    for sql in [
+        'ALTER TABLE history ADD COLUMN ftp_points INTEGER DEFAULT 0',
+        'ALTER TABLE checks  ADD COLUMN ftp_up      INTEGER DEFAULT 0',
+    ]:
+        try:
+            c.execute(sql)
+        except sqlite3.OperationalError:
+            pass  # column already exists
     # Seed defaults on first run
     c.execute('SELECT COUNT(*) FROM credentials')
     if c.fetchone()[0] == 0:
