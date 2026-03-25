@@ -1217,6 +1217,20 @@
         return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+    // ── Reset scores ──────────────────────────────────────────────────────────
+    async function resetScores() {
+        if (!confirm('Reset all scores to zero? This cannot be undone.')) return;
+        try {
+            const res = await fetch('/api/reset-scores', {method: 'POST'});
+            if ((await res.json()).ok) {
+                toast('Scores reset to zero.', 'success');
+                fetchData();
+            }
+        } catch (e) {
+            toast('Reset failed.', 'error');
+        }
+    }
+
     // ── Logs ──────────────────────────────────────────────────────────────────
     let logFilter = 'all';
 
