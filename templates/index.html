@@ -1308,13 +1308,23 @@
             return;
         }
         el.innerHTML = logs.map(l => `
-            <div class="log-entry ${l.status}">
+            <div class="log-entry ${l.status}" data-time="${escHtml(l.time)}">
                 <span class="log-time">${escHtml(l.time)}</span>
                 <span class="log-badge ${escHtml(l.service)}">${escHtml(l.service)}</span>
                 <span class="log-status ${l.status}">${l.status.toUpperCase()}</span>
                 <span class="log-msg" title="${escHtml(l.message)}">${escHtml(l.message)}</span>
             </div>
         `).join('');
+
+        if (pendingHighlight) {
+            const target = [...el.querySelectorAll('.log-entry')]
+                .find(e => e.dataset.time.includes(pendingHighlight));
+            if (target) {
+                target.classList.add('log-highlight');
+                target.scrollIntoView({block: 'nearest'});
+            }
+            pendingHighlight = null;
+        }
     }
 
     setInterval(fetchLogs, 5000);
