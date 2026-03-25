@@ -880,6 +880,8 @@
     <div class="card" style="margin-top:20px">
         <div class="log-header">
             <div class="card-title" style="margin-bottom:0">Service Logs</div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <button class="btn btn-danger btn-sm" onclick="resetLogs()">Reset Logs</button>
             <div class="log-filters">
                 <button class="filter-btn active"       data-filter="all"  onclick="setLogFilter(this,'all')">All</button>
                 <button class="filter-btn f-ssh"        data-filter="SSH"  onclick="setLogFilter(this,'SSH')">SSH</button>
