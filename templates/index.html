@@ -180,6 +180,15 @@
             box-shadow: 0 0 0 3px rgba(0,229,135,0.2);
             animation: pulse-green 2s ease-in-out infinite;
         }
+        .status-dot.up-orange {
+            background: var(--accent3);
+            box-shadow: 0 0 0 3px rgba(255,159,64,0.2);
+            animation: pulse-orange 2s ease-in-out infinite;
+        }
+        @keyframes pulse-orange {
+            0%, 100% { box-shadow: 0 0 0 3px rgba(255,159,64,0.2); }
+            50%       { box-shadow: 0 0 0 6px rgba(255,159,64,0.08); }
+        }
 
         @keyframes pulse-green {
             0%, 100% { box-shadow: 0 0 0 3px rgba(0,229,135,0.2); }
