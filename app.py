@@ -26,7 +26,8 @@ DEFAULT_USERS = [
 ]
 
 # Global live state
-current_state = {"ssh_up": False, "http_up": False, "ftp_up": False, "current_user": None, "last_check": None, "last_check_ts": None}
+current_state     = {"ssh_up": False, "http_up": False, "ftp_up": False, "current_user": None, "last_check": None, "last_check_ts": None}
+reset_scores_flag = False
 
 # --- Database ---
 def init_db():
