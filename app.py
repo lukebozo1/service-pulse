@@ -238,6 +238,18 @@ def api_logs():
     conn.close()
     return jsonify([{"time": r[0], "service": r[1], "status": r[2], "message": r[3]} for r in rows])
 
+# --- Reset Scores ---
+@app.route('/api/reset-scores', methods=['POST'])
+def reset_scores():
+    global reset_scores_flag
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('DELETE FROM history')
+    conn.commit()
+    conn.close()
+    reset_scores_flag = True
+    return jsonify({"ok": True})
+
 # --- Credential Management API ---
 @app.route('/api/users', methods=['GET'])
 def list_users():
