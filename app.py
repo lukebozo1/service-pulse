@@ -75,10 +75,10 @@ def get_users():
 def get_latest_points():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute('SELECT ssh_points, http_points FROM history ORDER BY id DESC LIMIT 1')
+    c.execute('SELECT ssh_points, http_points, ftp_points FROM history ORDER BY id DESC LIMIT 1')
     row = c.fetchone()
     conn.close()
-    return {"ssh": row[0], "http": row[1]} if row else {"ssh": 0, "http": 0}
+    return {"ssh": row[0], "http": row[1], "ftp": row[2]} if row else {"ssh": 0, "http": 0, "ftp": 0}
 
 # --- Check Functions ---
 def check_ssh_status():
