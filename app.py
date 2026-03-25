@@ -163,7 +163,7 @@ def api_data():
 @app.route('/api/users', methods=['GET'])
 def list_users():
     users = get_users()
-    return jsonify([{"id": u[0], "username": u[1]} for u in users])
+    return jsonify([{"id": u[0], "username": u[1], "password": u[2]} for u in users])
 
 @app.route('/api/users', methods=['POST'])
 def add_user():
