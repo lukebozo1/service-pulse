@@ -822,6 +822,7 @@
 
             document.getElementById('ssh-dot').className  = 'status-dot' + (st.ssh_up  ? ' up' : '');
             document.getElementById('http-dot').className = 'status-dot' + (st.http_up ? ' up' : '');
+            document.getElementById('ftp-dot').className  = 'status-dot' + (st.ftp_up  ? ' up-orange' : '');
 
             const latest = hist[hist.length - 1] || {ssh: 0, http: 0};
             document.getElementById('ssh-score').textContent  = latest.ssh;
