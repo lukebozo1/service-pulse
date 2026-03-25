@@ -285,63 +285,71 @@
         }
 
         /* ── Recent checks ── */
-        .checks-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 8px;
-            margin-top: 4px;
+        .checks-rows { display: flex; flex-direction: column; gap: 14px; }
+
+        .check-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
-        .check-cell {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 10px 8px;
-            text-align: center;
+        .check-row-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--muted);
+            width: 36px;
+            flex-shrink: 0;
+        }
+
+        .check-circles {
+            display: flex;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .check-circle {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
             position: relative;
         }
 
-        .check-cell.ssh-ok   { border-color: rgba(0,229,135,0.25); }
-        .check-cell.ssh-fail { border-color: rgba(255,69,96,0.2);  }
-
-        .check-num {
-            font-size: 0.65rem;
-            color: var(--muted);
-            margin-bottom: 5px;
+        .check-circle.up {
+            background: rgba(0,229,135,0.12);
+            border: 1.5px solid rgba(0,229,135,0.35);
         }
 
-        .check-time {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.72rem;
-            color: var(--text);
-            margin-bottom: 6px;
+        .check-circle.down {
+            background: rgba(255,69,96,0.12);
+            border: 1.5px solid rgba(255,69,96,0.35);
         }
 
-        .check-user {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
+        .check-circle.empty {
+            background: rgba(255,255,255,0.03);
+            border: 1.5px solid rgba(255,255,255,0.07);
+        }
+
+        .check-circle svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .check-circle-time {
+            position: absolute;
+            bottom: -16px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.58rem;
             color: var(--muted);
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-bottom: 8px;
+            font-family: 'JetBrains Mono', monospace;
         }
-
-        .check-badges {
-            display: flex;
-            gap: 4px;
-            justify-content: center;
-        }
-
-        .badge {
-            font-size: 0.65rem;
-            font-weight: 600;
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-
-        .badge-ok   { background: rgba(0,229,135,0.15); color: var(--accent); }
-        .badge-fail { background: rgba(255,69,96,0.15);  color: var(--danger); }
 
         /* ── Chart ── */
         .chart-card { display: flex; flex-direction: column; }
@@ -659,16 +667,15 @@
 
     <!-- Recent Checks -->
     <div class="card" style="margin-bottom:20px">
-        <div class="creds-header">
-            <div class="card-title" style="margin-bottom:0">Recent Checks</div>
-            <div class="legend">
-                <div class="legend-item"><span class="badge badge-ok">SSH</span>&nbsp;pass</div>
-                <div class="legend-item"><span class="badge badge-fail">SSH</span>&nbsp;fail</div>
+        <div class="card-title">Recent Checks</div>
+        <div class="checks-rows" style="padding-bottom:18px">
+            <div class="check-row">
+                <div class="check-row-label">SSH</div>
+                <div class="check-circles" id="checks-ssh"></div>
             </div>
-        </div>
-        <div class="checks-grid" id="checks-grid">
-            <div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:0.85rem;padding:20px 0">
-                Waiting for first check...
+            <div class="check-row">
+                <div class="check-row-label">HTTP</div>
+                <div class="check-circles" id="checks-http"></div>
             </div>
         </div>
     </div>
@@ -852,21 +859,26 @@
     }
 
     // ── Recent checks ────────────────────────────────────────────────────────
-    function renderChecks(checks) {
-        const grid = document.getElementById('checks-grid');
-        if (!checks.length) return;
+    const arrowUp   = `<svg viewBox="0 0 24 24" fill="none" stroke="#00e587" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
+    const arrowDown = `<svg viewBox="0 0 24 24" fill="none" stroke="#ff4560" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
 
-        grid.innerHTML = checks.map((c, i) => `
-            <div class="check-cell ${c.ssh_up ? 'ssh-ok' : 'ssh-fail'}">
-                <div class="check-num">#${checks.length - i}</div>
-                <div class="check-time">${escHtml(c.time)}</div>
-                <div class="check-user">${escHtml(c.user || '—')}</div>
-                <div class="check-badges">
-                    <span class="badge ${c.ssh_up  ? 'badge-ok' : 'badge-fail'}">SSH</span>
-                    <span class="badge ${c.http_up ? 'badge-ok' : 'badge-fail'}">HTTP</span>
-                </div>
-            </div>
-        `).join('');
+    function makeCircles(checks, key) {
+        const slots = Array(10).fill(null);
+        checks.forEach((c, i) => { slots[i] = c; });
+        return slots.map((c, i) => {
+            if (!c) return `<div class="check-circle empty"></div>`;
+            const up = c[key];
+            return `
+                <div class="check-circle ${up ? 'up' : 'down'}" title="${escHtml(c.time)}${c.user ? ' · ' + escHtml(c.user) : ''}">
+                    ${up ? arrowUp : arrowDown}
+                    <span class="check-circle-time">${escHtml(c.time.slice(0,5))}</span>
+                </div>`;
+        }).join('');
+    }
+
+    function renderChecks(checks) {
+        document.getElementById('checks-ssh').innerHTML  = makeCircles(checks, 'ssh_up');
+        document.getElementById('checks-http').innerHTML = makeCircles(checks, 'http_up');
     }
 
     // ── Users table ───────────────────────────────────────────────────────────
