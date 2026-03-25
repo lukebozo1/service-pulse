@@ -1,0 +1,21 @@
+<div class="modal-overlay" id="modal">
+    <div class="modal">
+        <div class="modal-title" id="modal-title">Add Account</div>
+        <input type="hidden" id="modal-uid">
+
+        <div class="form-group" id="username-group">
+            <label class="form-label">Username</label>
+            <input class="form-input" id="modal-username" type="text" placeholder="john" autocomplete="off">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Password</label>
+            <input class="form-input" id="modal-password" type="text" placeholder="new password" autocomplete="off">
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-primary" id="modal-submit" onclick="submitModal()">Save</button>
+        </div>
+    </div>
+</div>
