@@ -172,17 +172,17 @@ def index():
 def api_data():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute('SELECT timestamp, ssh_points, http_points FROM history ORDER BY id DESC LIMIT 60')
+    c.execute('SELECT timestamp, ssh_points, http_points, ftp_points FROM history ORDER BY id DESC LIMIT 60')
     rows = c.fetchall()
     rows.reverse()
-    c.execute('SELECT timestamp, username, ssh_up, http_up FROM checks ORDER BY id DESC LIMIT 10')
+    c.execute('SELECT timestamp, username, ssh_up, http_up, ftp_up FROM checks ORDER BY id DESC LIMIT 10')
     checks = c.fetchall()
     conn.close()
 
     return jsonify({
         "current_state": current_state,
-        "history": [{"time": r[0], "ssh": r[1], "http": r[2]} for r in rows],
-        "recent_checks": [{"time": r[0], "user": r[1], "ssh_up": bool(r[2]), "http_up": bool(r[3])} for r in checks]
+        "history": [{"time": r[0], "ssh": r[1], "http": r[2], "ftp": r[3]} for r in rows],
+        "recent_checks": [{"time": r[0], "user": r[1], "ssh_up": bool(r[2]), "http_up": bool(r[3]), "ftp_up": bool(r[4])} for r in checks]
     })
 
 # --- Credential Management API ---
