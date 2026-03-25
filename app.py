@@ -169,6 +169,19 @@ def background_monitor():
             "DELETE FROM checks WHERE id NOT IN "
             "(SELECT id FROM checks ORDER BY id DESC LIMIT 10)"
         )
+        ts = time.strftime("%Y-%m-%d %H:%M:%S")
+        c.executemany(
+            "INSERT INTO logs (timestamp, service, status, message) VALUES (?, ?, ?, ?)",
+            [
+                (ts, 'SSH',  'up' if ssh_up  else 'down', ssh_msg),
+                (ts, 'HTTP', 'up' if http_up else 'down', http_msg),
+                (ts, 'FTP',  'up' if ftp_up  else 'down', ftp_msg),
+            ]
+        )
+        c.execute(
+            "DELETE FROM logs WHERE id NOT IN "
+            "(SELECT id FROM logs ORDER BY id DESC LIMIT 300)"
+        )
         conn.commit()
         conn.close()
 
