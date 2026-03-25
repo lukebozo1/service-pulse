@@ -1264,7 +1264,16 @@
     }
 
     // ── Logs ──────────────────────────────────────────────────────────────────
-    let logFilter = 'all';
+    let logFilter        = 'all';
+    let pendingHighlight = null; // HH:MM:SS to flash after next render
+
+    function jumpToLog(service, time) {
+        pendingHighlight = time;
+        const btn = document.querySelector(`.filter-btn.f-${service.toLowerCase()}`);
+        if (btn) setLogFilter(btn, service);
+        else fetchLogs();
+        document.getElementById('log-card').scrollIntoView({behavior: 'smooth', block: 'start'});
+    }
 
     function setLogFilter(btn, filter) {
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
