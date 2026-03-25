@@ -211,6 +211,29 @@ def api_data():
         "recent_checks": [{"time": r[0], "user": r[1], "ssh_up": bool(r[2]), "http_up": bool(r[3]), "ftp_up": bool(r[4])} for r in checks]
     })
 
+# --- Logs API ---
+@app.route('/api/logs')
+def api_logs():
+    service = request.args.get('service')   # optional filter: SSH, HTTP, FTP
+    errors  = request.args.get('errors')    # optional filter: errors only
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    query  = 'SELECT timestamp, service, status, message FROM logs'
+    params = []
+    wheres = []
+    if service:
+        wheres.append('service = ?')
+        params.append(service.upper())
+    if errors == '1':
+        wheres.append("status = 'down'")
+    if wheres:
+        query += ' WHERE ' + ' AND '.join(wheres)
+    query += ' ORDER BY id DESC LIMIT 100'
+    c.execute(query, params)
+    rows = c.fetchall()
+    conn.close()
+    return jsonify([{"time": r[0], "service": r[1], "status": r[2], "message": r[3]} for r in rows])
+
 # --- Credential Management API ---
 @app.route('/api/users', methods=['GET'])
 def list_users():
