@@ -567,6 +567,36 @@
         .toast.success { border-left: 3px solid var(--accent); }
         .toast.error   { border-left: 3px solid var(--danger); }
 
+        /* ── B.A.S.T.I.O.N. subtitle animation ── */
+        .bastion-subtitle {
+            font-size: 0.72rem;
+            color: var(--muted);
+            margin-top: 5px;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.01em;
+            line-height: 1.5;
+        }
+
+        @keyframes kl-glow {
+            0%   { color: var(--accent); text-shadow: 0 0 8px rgba(0,229,135,0.9), 0 0 20px rgba(0,229,135,0.4); }
+            8%   { color: var(--muted);  text-shadow: none; }
+            100% { color: var(--muted);  text-shadow: none; }
+        }
+
+        .kl {
+            font-weight: 700;
+            color: var(--muted);
+            animation: kl-glow 7s ease-in-out infinite;
+        }
+
+        .kl-1 { animation-delay: 0s; }
+        .kl-2 { animation-delay: 1s; }
+        .kl-3 { animation-delay: 2s; }
+        .kl-4 { animation-delay: 3s; }
+        .kl-5 { animation-delay: 4s; }
+        .kl-6 { animation-delay: 5s; }
+        .kl-7 { animation-delay: 6s; }
+
         /* ── Footer ── */
         .footer {
             text-align: center;
