@@ -48,6 +48,12 @@ def init_db():
                   ssh_up INTEGER,
                   http_up INTEGER,
                   ftp_up INTEGER)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS logs
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  timestamp TEXT,
+                  service TEXT,
+                  status TEXT,
+                  message TEXT)''')
     # Migrate existing tables to add ftp columns if missing
     for sql in [
         'ALTER TABLE history ADD COLUMN ftp_points INTEGER DEFAULT 0',
