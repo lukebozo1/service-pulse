@@ -90,7 +90,7 @@ def get_latest_points():
 def check_ssh_status():
     users = get_users()
     if not users:
-        return False, None
+        return False, None, "No credentials configured"
     uid, username, password = random.choice(users)
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -98,17 +98,23 @@ def check_ssh_status():
         client.connect(TARGET_HOST, username=username, password=password, timeout=5)
         client.close()
         print(f"✅ SSH OK  [{username}]")
-        return True, username
+        return True, username, f"Login OK as {username}"
     except Exception as e:
-        print(f"❌ SSH fail [{username}]: {type(e).__name__}")
-        return False, username
+        msg = f"{type(e).__name__}: {e}"
+        print(f"❌ SSH fail [{username}]: {msg}")
+        return False, username, f"[{username}] {msg}"
 
 def check_http_status():
     try:
         r = requests.get(HTTP_URL, timeout=5)
-        return r.status_code == 200 and SEARCH_TEXT in r.text
-    except Exception:
-        return False
+        if r.status_code == 200 and SEARCH_TEXT in r.text:
+            return True, f"HTTP 200, '{SEARCH_TEXT}' found"
+        reason = f"HTTP {r.status_code}"
+        if SEARCH_TEXT not in r.text:
+            reason += f", '{SEARCH_TEXT}' not in response"
+        return False, reason
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
 
 def check_ftp_status():
     try:
@@ -117,10 +123,11 @@ def check_ftp_status():
         ftp.login()  # anonymous, no password
         ftp.quit()
         print("✅ FTP OK  [anonymous]")
-        return True
+        return True, "Anonymous login OK"
     except Exception as e:
-        print(f"❌ FTP fail: {type(e).__name__}")
-        return False
+        msg = f"{type(e).__name__}: {e}"
+        print(f"❌ FTP fail: {msg}")
+        return False, msg
 
 # --- Background Monitor ---
 def background_monitor():
