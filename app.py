@@ -25,7 +25,7 @@ DEFAULT_USERS = [
 ]
 
 # Global live state
-current_state = {"ssh_up": False, "http_up": False, "current_user": None, "last_check": None}
+current_state = {"ssh_up": False, "http_up": False, "current_user": None, "last_check": None, "last_check_ts": None}
 
 # --- Database ---
 def init_db():
@@ -40,6 +40,12 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   username TEXT NOT NULL,
                   password TEXT NOT NULL)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS checks
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  timestamp TEXT,
+                  username TEXT,
+                  ssh_up INTEGER,
+                  http_up INTEGER)''')
     # Seed defaults on first run
     c.execute('SELECT COUNT(*) FROM credentials')
     if c.fetchone()[0] == 0:
@@ -96,10 +102,11 @@ def background_monitor():
         ssh_up, used_user = check_ssh_status()
         http_up = check_http_status()
 
-        current_state["ssh_up"]       = ssh_up
-        current_state["http_up"]      = http_up
-        current_state["current_user"] = used_user
-        current_state["last_check"]   = time.strftime("%H:%M:%S")
+        current_state["ssh_up"]        = ssh_up
+        current_state["http_up"]       = http_up
+        current_state["current_user"]  = used_user
+        current_state["last_check"]    = time.strftime("%H:%M:%S")
+        current_state["last_check_ts"] = int(time.time())
 
         scores["ssh"]  += 50 if ssh_up  else -10
         scores["http"] += 50 if http_up else -10
@@ -114,6 +121,14 @@ def background_monitor():
         c.execute(
             "DELETE FROM history WHERE id NOT IN "
             "(SELECT id FROM history ORDER BY id DESC LIMIT 1440)"
+        )
+        c.execute(
+            "INSERT INTO checks (timestamp, username, ssh_up, http_up) VALUES (?, ?, ?, ?)",
+            (time.strftime("%H:%M:%S"), used_user, int(ssh_up), int(http_up))
+        )
+        c.execute(
+            "DELETE FROM checks WHERE id NOT IN "
+            "(SELECT id FROM checks ORDER BY id DESC LIMIT 10)"
         )
         conn.commit()
         conn.close()
@@ -133,11 +148,15 @@ def api_data():
     c = conn.cursor()
     c.execute('SELECT timestamp, ssh_points, http_points FROM history ORDER BY id DESC LIMIT 60')
     rows = c.fetchall()
-    conn.close()
     rows.reverse()
+    c.execute('SELECT timestamp, username, ssh_up, http_up FROM checks ORDER BY id DESC LIMIT 10')
+    checks = c.fetchall()
+    conn.close()
+
     return jsonify({
         "current_state": current_state,
-        "history": [{"time": r[0], "ssh": r[1], "http": r[2]} for r in rows]
+        "history": [{"time": r[0], "ssh": r[1], "http": r[2]} for r in rows],
+        "recent_checks": [{"time": r[0], "user": r[1], "ssh_up": bool(r[2]), "http_up": bool(r[3])} for r in checks]
     })
 
 # --- Credential Management API ---

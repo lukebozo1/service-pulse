@@ -250,6 +250,99 @@
             text-align: right;
         }
 
+        /* ── Countdown ── */
+        .countdown-bar {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .countdown-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--muted);
+        }
+
+        .countdown-value {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent);
+        }
+
+        .progress-track {
+            height: 4px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: width 1s linear;
+        }
+
+        /* ── Recent checks ── */
+        .checks-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .check-cell {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px 8px;
+            text-align: center;
+            position: relative;
+        }
+
+        .check-cell.ssh-ok   { border-color: rgba(0,229,135,0.25); }
+        .check-cell.ssh-fail { border-color: rgba(255,69,96,0.2);  }
+
+        .check-num {
+            font-size: 0.65rem;
+            color: var(--muted);
+            margin-bottom: 5px;
+        }
+
+        .check-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .check-user {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 8px;
+        }
+
+        .check-badges {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+        }
+
+        .badge {
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .badge-ok   { background: rgba(0,229,135,0.15); color: var(--accent); }
+        .badge-fail { background: rgba(255,69,96,0.15);  color: var(--danger); }
+
         /* ── Chart ── */
         .chart-card { display: flex; flex-direction: column; }
 
@@ -533,6 +626,16 @@
             </div>
 
             <div class="last-check">Last check: <span id="last-check">—</span></div>
+
+            <div class="countdown-bar">
+                <div class="countdown-label">
+                    <span>Next check in</span>
+                    <span class="countdown-value" id="countdown-value">—</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill" id="countdown-fill" style="width:100%"></div>
+                </div>
+            </div>
         </div>
 
         <!-- Chart -->
@@ -551,6 +654,22 @@
                 </div>
             </div>
             <div class="chart-wrap"><canvas id="scoreChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- Recent Checks -->
+    <div class="card" style="margin-bottom:20px">
+        <div class="creds-header">
+            <div class="card-title" style="margin-bottom:0">Recent Checks</div>
+            <div class="legend">
+                <div class="legend-item"><span class="badge badge-ok">SSH</span>&nbsp;pass</div>
+                <div class="legend-item"><span class="badge badge-fail">SSH</span>&nbsp;fail</div>
+            </div>
+        </div>
+        <div class="checks-grid" id="checks-grid">
+            <div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:0.85rem;padding:20px 0">
+                Waiting for first check...
+            </div>
         </div>
     </div>
 
@@ -612,6 +731,20 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
     let chart = null;
+    let lastCheckTs = null;
+    const CHECK_INTERVAL = 60;
+
+    // ── Countdown timer (ticks every second) ─────────────────────────────────
+    setInterval(() => {
+        if (lastCheckTs === null) return;
+        const elapsed = Math.floor(Date.now() / 1000) - lastCheckTs;
+        const remaining = Math.max(0, CHECK_INTERVAL - elapsed);
+        const pct = (remaining / CHECK_INTERVAL) * 100;
+        document.getElementById('countdown-value').textContent = remaining + 's';
+        document.getElementById('countdown-fill').style.width  = pct + '%';
+        document.getElementById('countdown-fill').style.background =
+            remaining < 10 ? 'var(--warn)' : 'var(--accent)';
+    }, 1000);
 
     // ── Data polling ──────────────────────────────────────────────────────────
     async function fetchData() {
@@ -630,7 +763,10 @@
             document.getElementById('current-user').textContent = st.current_user || '—';
             document.getElementById('last-check').textContent   = st.last_check  || '—';
 
+            if (st.last_check_ts) lastCheckTs = st.last_check_ts;
+
             renderChart(hist);
+            renderChecks(data.recent_checks || []);
         } catch (e) {
             console.error('Poll error', e);
         }
@@ -713,6 +849,24 @@
                 }
             }
         });
+    }
+
+    // ── Recent checks ────────────────────────────────────────────────────────
+    function renderChecks(checks) {
+        const grid = document.getElementById('checks-grid');
+        if (!checks.length) return;
+
+        grid.innerHTML = checks.map((c, i) => `
+            <div class="check-cell ${c.ssh_up ? 'ssh-ok' : 'ssh-fail'}">
+                <div class="check-num">#${checks.length - i}</div>
+                <div class="check-time">${escHtml(c.time)}</div>
+                <div class="check-user">${escHtml(c.user || '—')}</div>
+                <div class="check-badges">
+                    <span class="badge ${c.ssh_up  ? 'badge-ok' : 'badge-fail'}">SSH</span>
+                    <span class="badge ${c.http_up ? 'badge-ok' : 'badge-fail'}">HTTP</span>
+                </div>
+            </div>
+        `).join('');
     }
 
     // ── Users table ───────────────────────────────────────────────────────────
