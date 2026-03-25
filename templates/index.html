@@ -927,7 +927,7 @@
                 <tr>
                     <td class="user-mono" style="color:var(--muted)">${i + 1}</td>
                     <td class="user-mono">${escHtml(u.username)}</td>
-                    <td><span class="pw-mask">••••••••</span></td>
+                    <td class="user-mono">${escHtml(u.password)}</td>
                     <td>
                         <div class="actions-cell">
                             <button class="btn btn-ghost btn-sm" onclick="openEditModal(${u.id}, '${escHtml(u.username)}')">
