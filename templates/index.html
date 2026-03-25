@@ -852,9 +852,10 @@
         const ftp    = history.map(h => h.ftp);
 
         if (chart) {
-            chart.data.labels          = labels;
+            chart.data.labels           = labels;
             chart.data.datasets[0].data = ssh;
             chart.data.datasets[1].data = http;
+            chart.data.datasets[2].data = ftp;
             chart.update('none');
             return;
         }
