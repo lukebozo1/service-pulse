@@ -104,6 +104,18 @@ def check_http_status():
     except Exception:
         return False
 
+def check_ftp_status():
+    try:
+        ftp = ftplib.FTP(timeout=5)
+        ftp.connect(TARGET_HOST)
+        ftp.login()  # anonymous, no password
+        ftp.quit()
+        print("✅ FTP OK  [anonymous]")
+        return True
+    except Exception as e:
+        print(f"❌ FTP fail: {type(e).__name__}")
+        return False
+
 # --- Background Monitor ---
 def background_monitor():
     global current_state
