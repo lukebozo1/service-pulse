@@ -1,0 +1,193 @@
+from flask import Flask, render_template, jsonify, request
+import paramiko
+import requests
+import threading
+import time
+import sqlite3
+import random
+
+app = Flask(__name__)
+
+# --- Configuration ---
+TARGET_HOST = "10.10.40.50"
+HTTP_URL = "http://10.10.40.50"
+SEARCH_TEXT = "Wikipedia"
+DB_FILE = "monitor_data.db"
+
+DEFAULT_USERS = [
+    ("john",     "john"),
+    ("bob",      "bob"),
+    ("alice",    "alice"),
+    ("patricia", "patricia"),
+    ("tyrone",   "tyrone"),
+    ("jason",    "jason"),
+    ("newuser",  "newuser"),
+]
+
+# Global live state
+current_state = {"ssh_up": False, "http_up": False, "current_user": None, "last_check": None}
+
+# --- Database ---
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS history
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  timestamp TEXT,
+                  ssh_points INTEGER,
+                  http_points INTEGER)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS credentials
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  username TEXT NOT NULL,
+                  password TEXT NOT NULL)''')
+    # Seed defaults on first run
+    c.execute('SELECT COUNT(*) FROM credentials')
+    if c.fetchone()[0] == 0:
+        c.executemany('INSERT INTO credentials (username, password) VALUES (?, ?)', DEFAULT_USERS)
+    conn.commit()
+    conn.close()
+
+def get_users():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT id, username, password FROM credentials ORDER BY id')
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+def get_latest_points():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT ssh_points, http_points FROM history ORDER BY id DESC LIMIT 1')
+    row = c.fetchone()
+    conn.close()
+    return {"ssh": row[0], "http": row[1]} if row else {"ssh": 0, "http": 0}
+
+# --- Check Functions ---
+def check_ssh_status():
+    users = get_users()
+    if not users:
+        return False, None
+    uid, username, password = random.choice(users)
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    try:
+        client.connect(TARGET_HOST, username=username, password=password, timeout=5)
+        client.close()
+        print(f"✅ SSH OK  [{username}]")
+        return True, username
+    except Exception as e:
+        print(f"❌ SSH fail [{username}]: {type(e).__name__}")
+        return False, username
+
+def check_http_status():
+    try:
+        r = requests.get(HTTP_URL, timeout=5)
+        return r.status_code == 200 and SEARCH_TEXT in r.text
+    except Exception:
+        return False
+
+# --- Background Monitor ---
+def background_monitor():
+    global current_state
+    init_db()
+    scores = get_latest_points()
+    while True:
+        ssh_up, used_user = check_ssh_status()
+        http_up = check_http_status()
+
+        current_state["ssh_up"]       = ssh_up
+        current_state["http_up"]      = http_up
+        current_state["current_user"] = used_user
+        current_state["last_check"]   = time.strftime("%H:%M:%S")
+
+        scores["ssh"]  += 50 if ssh_up  else -10
+        scores["http"] += 50 if http_up else -10
+
+        timestamp = time.strftime("%H:%M")
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO history (timestamp, ssh_points, http_points) VALUES (?, ?, ?)",
+            (timestamp, scores["ssh"], scores["http"])
+        )
+        c.execute(
+            "DELETE FROM history WHERE id NOT IN "
+            "(SELECT id FROM history ORDER BY id DESC LIMIT 1440)"
+        )
+        conn.commit()
+        conn.close()
+
+        time.sleep(60)
+
+threading.Thread(target=background_monitor, daemon=True).start()
+
+# --- Routes ---
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/api/data')
+def api_data():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT timestamp, ssh_points, http_points FROM history ORDER BY id DESC LIMIT 60')
+    rows = c.fetchall()
+    conn.close()
+    rows.reverse()
+    return jsonify({
+        "current_state": current_state,
+        "history": [{"time": r[0], "ssh": r[1], "http": r[2]} for r in rows]
+    })
+
+# --- Credential Management API ---
+@app.route('/api/users', methods=['GET'])
+def list_users():
+    users = get_users()
+    return jsonify([{"id": u[0], "username": u[1]} for u in users])
+
+@app.route('/api/users', methods=['POST'])
+def add_user():
+    data = request.get_json() or {}
+    username = (data.get('username') or '').strip()
+    password = (data.get('password') or '').strip()
+    if not username or not password:
+        return jsonify({"error": "username and password are required"}), 400
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('INSERT INTO credentials (username, password) VALUES (?, ?)', (username, password))
+    conn.commit()
+    new_id = c.lastrowid
+    conn.close()
+    return jsonify({"id": new_id, "username": username}), 201
+
+@app.route('/api/users/<int:uid>', methods=['PUT'])
+def update_user(uid):
+    data = request.get_json() or {}
+    password = (data.get('password') or '').strip()
+    if not password:
+        return jsonify({"error": "password is required"}), 400
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE credentials SET password = ? WHERE id = ?', (password, uid))
+    found = c.rowcount > 0
+    conn.commit()
+    conn.close()
+    if not found:
+        return jsonify({"error": "user not found"}), 404
+    return jsonify({"ok": True})
+
+@app.route('/api/users/<int:uid>', methods=['DELETE'])
+def delete_user(uid):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('DELETE FROM credentials WHERE id = ?', (uid,))
+    found = c.rowcount > 0
+    conn.commit()
+    conn.close()
+    if not found:
+        return jsonify({"error": "user not found"}), 404
+    return jsonify({"ok": True})
+
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=5000, debug=False)

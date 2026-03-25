@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Pulse</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg:       #080b10;
+            --surface:  #0e1117;
+            --card:     #131820;
+            --border:   rgba(255,255,255,0.07);
+            --border2:  rgba(255,255,255,0.12);
+            --text:     #e8eaf0;
+            --muted:    #5a6478;
+            --accent:   #00e587;
+            --accent2:  #0099ff;
+            --danger:   #ff4560;
+            --warn:     #ffc107;
+            --radius:   16px;
+            --radius-sm: 10px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', system-ui, sans-serif;
+            min-height: 100vh;
+            padding: 32px 24px 60px;
+        }
+
+        /* Subtle grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0,229,135,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,229,135,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Glow blobs */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 60% 40% at 15% 10%, rgba(0,229,135,0.06) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 35% at 85% 90%, rgba(0,153,255,0.05) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── Header ── */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 36px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .brand h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.9rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+            background: linear-gradient(100deg, #fff 30%, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand p {
+            color: var(--muted);
+            font-size: 0.85rem;
+            margin-top: 3px;
+        }
+
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0,229,135,0.08);
+            border: 1px solid rgba(0,229,135,0.2);
+            color: var(--accent);
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 7px 14px;
+            border-radius: 9999px;
+        }
+
+        .live-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent);
+            animation: blink 1.4s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.2; }
+        }
+
+        /* ── Top row: Status cards + Chart ── */
+        .top-grid {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        /* ── Card base ── */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+        }
+
+        .card-title {
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 20px;
+        }
+
+        /* ── Status panel ── */
+        .status-panel { display: flex; flex-direction: column; gap: 0; }
+
+        .service-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .service-row:last-of-type { border-bottom: none; }
+
+        .service-label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--danger);
+            box-shadow: 0 0 0 3px rgba(255,69,96,0.2);
+            flex-shrink: 0;
+            transition: background 0.4s, box-shadow 0.4s;
+        }
+        .status-dot.up {
+            background: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0,229,135,0.2);
+            animation: pulse-green 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 3px rgba(0,229,135,0.2); }
+            50%       { box-shadow: 0 0 0 6px rgba(0,229,135,0.08); }
+        }
+
+        .service-right { text-align: right; }
+
+        .score-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+            color: var(--accent);
+            line-height: 1;
+        }
+
+        .score-label {
+            font-size: 0.72rem;
+            color: var(--muted);
+            margin-top: 3px;
+        }
+
+        /* ── Active user badge ── */
+        .active-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 12px 14px;
+            background: rgba(0,229,135,0.05);
+            border: 1px solid rgba(0,229,135,0.12);
+            border-radius: var(--radius-sm);
+        }
+
+        .active-user-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: rgba(0,229,135,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        .active-user-info { flex: 1; min-width: 0; }
+
+        .active-user-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.88rem;
+            color: var(--accent);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .active-user-label {
+            font-size: 0.7rem;
+            color: var(--muted);
+            margin-top: 1px;
+        }
+
+        .last-check {
+            font-size: 0.7rem;
+            color: var(--muted);
+            margin-top: 14px;
+            text-align: right;
+        }
+
+        /* ── Chart ── */
+        .chart-card { display: flex; flex-direction: column; }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 18px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .legend-pip {
+            width: 20px;
+            height: 3px;
+            border-radius: 2px;
+        }
+
+        canvas { flex: 1; min-height: 280px; }
+
+        /* ── Credentials section ── */
+        .creds-card { margin-bottom: 0; }
+
+        .creds-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            border: none;
+            font-size: 0.83rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn:hover  { opacity: 0.85; }
+
+        .btn-primary { background: var(--accent); color: #000; }
+        .btn-ghost   { background: var(--surface); border: 1px solid var(--border2); color: var(--text); }
+        .btn-danger  { background: rgba(255,69,96,0.15); border: 1px solid rgba(255,69,96,0.25); color: var(--danger); }
+        .btn-sm      { padding: 5px 11px; font-size: 0.77rem; }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .users-table th {
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted);
+            text-align: left;
+            padding: 0 12px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .users-table td {
+            padding: 13px 12px;
+            font-size: 0.88rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        .users-table tr:last-child td { border-bottom: none; }
+        .users-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+        .user-mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .pw-mask {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--muted);
+            letter-spacing: 2px;
+        }
+
+        .actions-cell {
+            display: flex;
+            gap: 6px;
+            justify-content: flex-end;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 0;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        /* ── Modal ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+
+        .modal {
+            background: var(--card);
+            border: 1px solid var(--border2);
+            border-radius: var(--radius);
+            padding: 28px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+            animation: slide-up 0.18s ease;
+        }
+
+        @keyframes slide-up {
+            from { transform: translateY(16px); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+
+        .modal-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .form-group { margin-bottom: 16px; }
+
+        .form-label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 7px;
+        }
+
+        .form-input {
+            width: 100%;
+            background: var(--surface);
+            border: 1px solid var(--border2);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            padding: 10px 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-input:focus { border-color: var(--accent); }
+        .form-input::placeholder { color: var(--muted); }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 22px;
+        }
+
+        /* ── Toast ── */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 200;
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--card);
+            border: 1px solid var(--border2);
+            border-radius: var(--radius-sm);
+            padding: 12px 18px;
+            font-size: 0.85rem;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            animation: toast-in 0.2s ease;
+            min-width: 220px;
+        }
+
+        @keyframes toast-in {
+            from { transform: translateX(20px); opacity: 0; }
+            to   { transform: translateX(0);    opacity: 1; }
+        }
+
+        .toast.success { border-left: 3px solid var(--accent); }
+        .toast.error   { border-left: 3px solid var(--danger); }
+
+        /* ── Footer ── */
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: var(--muted);
+            font-size: 0.78rem;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 860px) {
+            .top-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Header -->
+    <header>
+        <div class="brand">
+            <h1>Service Pulse</h1>
+            <p>Live uptime monitoring &bull; air-gapped lab &bull; credential rotation</p>
+        </div>
+        <div class="live-badge">
+            <span class="live-dot"></span>
+            Live
+        </div>
+    </header>
+
+    <!-- Status + Chart -->
+    <div class="top-grid">
+
+        <!-- Status panel -->
+        <div class="card status-panel">
+            <div class="card-title">Service Status</div>
+
+            <div class="service-row">
+                <div class="service-label">
+                    <span class="status-dot" id="ssh-dot"></span>
+                    SSH Access
+                </div>
+                <div class="service-right">
+                    <div class="score-value" id="ssh-score">—</div>
+                    <div class="score-label">points</div>
+                </div>
+            </div>
+
+            <div class="service-row">
+                <div class="service-label">
+                    <span class="status-dot" id="http-dot"></span>
+                    HTTP Check
+                </div>
+                <div class="service-right">
+                    <div class="score-value" id="http-score">—</div>
+                    <div class="score-label">points</div>
+                </div>
+            </div>
+
+            <div class="active-user">
+                <div class="active-user-icon">👤</div>
+                <div class="active-user-info">
+                    <div class="active-user-name" id="current-user">—</div>
+                    <div class="active-user-label">Last user tried</div>
+                </div>
+            </div>
+
+            <div class="last-check">Last check: <span id="last-check">—</span></div>
+        </div>
+
+        <!-- Chart -->
+        <div class="card chart-card">
+            <div class="chart-header">
+                <div class="card-title" style="margin-bottom:0">Score History (last 60 min)</div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-pip" style="background:var(--accent)"></div>
+                        SSH
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-pip" style="background:var(--accent2)"></div>
+                        HTTP
+                    </div>
+                </div>
+            </div>
+            <canvas id="scoreChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Credentials Management -->
+    <div class="card creds-card">
+        <div class="creds-header">
+            <div class="card-title" style="margin-bottom:0">SSH Credentials</div>
+            <button class="btn btn-primary" onclick="openAddModal()">
+                + Add Account
+            </button>
+        </div>
+
+        <table class="users-table" id="users-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Username</th>
+                    <th>Password</th>
+                    <th style="text-align:right">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="users-tbody">
+                <tr><td colspan="4"><div class="empty-state">Loading...</div></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="footer">
+        Polling every 5s &bull; SSH check every 60s &bull; SQLite backend
+    </div>
+</div>
+
+<!-- Add / Edit Modal -->
+<div class="modal-overlay" id="modal">
+    <div class="modal">
+        <div class="modal-title" id="modal-title">Add Account</div>
+        <input type="hidden" id="modal-uid">
+
+        <div class="form-group" id="username-group">
+            <label class="form-label">Username</label>
+            <input class="form-input" id="modal-username" type="text" placeholder="john" autocomplete="off">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Password</label>
+            <input class="form-input" id="modal-password" type="text" placeholder="new password" autocomplete="off">
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-primary" id="modal-submit" onclick="submitModal()">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toasts"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    let chart = null;
+
+    // ── Data polling ──────────────────────────────────────────────────────────
+    async function fetchData() {
+        try {
+            const res  = await fetch('/api/data');
+            const data = await res.json();
+            const st   = data.current_state;
+            const hist = data.history;
+
+            document.getElementById('ssh-dot').className  = 'status-dot' + (st.ssh_up  ? ' up' : '');
+            document.getElementById('http-dot').className = 'status-dot' + (st.http_up ? ' up' : '');
+
+            const latest = hist[hist.length - 1] || {ssh: 0, http: 0};
+            document.getElementById('ssh-score').textContent  = latest.ssh;
+            document.getElementById('http-score').textContent = latest.http;
+            document.getElementById('current-user').textContent = st.current_user || '—';
+            document.getElementById('last-check').textContent   = st.last_check  || '—';
+
+            renderChart(hist);
+        } catch (e) {
+            console.error('Poll error', e);
+        }
+    }
+
+    setInterval(fetchData, 5000);
+    window.addEventListener('DOMContentLoaded', fetchData);
+
+    // ── Chart ─────────────────────────────────────────────────────────────────
+    function renderChart(history) {
+        const ctx    = document.getElementById('scoreChart');
+        const labels = history.map(h => h.time);
+        const ssh    = history.map(h => h.ssh);
+        const http   = history.map(h => h.http);
+
+        if (chart) {
+            chart.data.labels          = labels;
+            chart.data.datasets[0].data = ssh;
+            chart.data.datasets[1].data = http;
+            chart.update('none');
+            return;
+        }
+
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'SSH',
+                        data: ssh,
+                        borderColor: '#00e587',
+                        backgroundColor: 'rgba(0,229,135,0.07)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                    },
+                    {
+                        label: 'HTTP',
+                        data: http,
+                        borderColor: '#0099ff',
+                        backgroundColor: 'rgba(0,153,255,0.07)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#0e1117',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        titleColor: '#9ca3b0',
+                        bodyColor: '#e8eaf0',
+                        padding: 12,
+                        callbacks: {
+                            label: ctx => ` ${ctx.dataset.label}: ${ctx.raw} pts`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        grid:  { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#5a6478', font: { size: 12 } }
+                    },
+                    x: {
+                        grid:  { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#5a6478', font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }
+                    }
+                }
+            }
+        });
+    }
+
+    // ── Users table ───────────────────────────────────────────────────────────
+    async function loadUsers() {
+        try {
+            const res   = await fetch('/api/users');
+            const users = await res.json();
+            const tbody = document.getElementById('users-tbody');
+
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state">No accounts configured.</div></td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = users.map((u, i) => `
+                <tr>
+                    <td class="user-mono" style="color:var(--muted)">${i + 1}</td>
+                    <td class="user-mono">${escHtml(u.username)}</td>
+                    <td><span class="pw-mask">••••••••</span></td>
+                    <td>
+                        <div class="actions-cell">
+                            <button class="btn btn-ghost btn-sm" onclick="openEditModal(${u.id}, '${escHtml(u.username)}')">
+                                Change Password
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${escHtml(u.username)}')">
+                                Remove
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (e) {
+            console.error('Failed to load users', e);
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', loadUsers);
+
+    // ── Modal logic ───────────────────────────────────────────────────────────
+    function openAddModal() {
+        document.getElementById('modal-title').textContent    = 'Add Account';
+        document.getElementById('modal-uid').value           = '';
+        document.getElementById('modal-username').value      = '';
+        document.getElementById('modal-password').value      = '';
+        document.getElementById('username-group').style.display = '';
+        document.getElementById('modal-submit').textContent  = 'Add';
+        document.getElementById('modal').classList.add('open');
+        document.getElementById('modal-username').focus();
+    }
+
+    function openEditModal(uid, username) {
+        document.getElementById('modal-title').textContent   = `Change Password — ${username}`;
+        document.getElementById('modal-uid').value          = uid;
+        document.getElementById('modal-password').value     = '';
+        document.getElementById('username-group').style.display = 'none';
+        document.getElementById('modal-submit').textContent = 'Update';
+        document.getElementById('modal').classList.add('open');
+        document.getElementById('modal-password').focus();
+    }
+
+    function closeModal() {
+        document.getElementById('modal').classList.remove('open');
+    }
+
+    // Close on overlay click
+    document.getElementById('modal').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeModal();
+    });
+
+    async function submitModal() {
+        const uid      = document.getElementById('modal-uid').value;
+        const username = document.getElementById('modal-username').value.trim();
+        const password = document.getElementById('modal-password').value.trim();
+
+        if (!password) { toast('Password cannot be empty.', 'error'); return; }
+
+        try {
+            let res;
+            if (uid) {
+                // Update existing
+                res = await fetch(`/api/users/${uid}`, {
+                    method:  'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body:    JSON.stringify({password})
+                });
+            } else {
+                // Add new
+                if (!username) { toast('Username cannot be empty.', 'error'); return; }
+                res = await fetch('/api/users', {
+                    method:  'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body:    JSON.stringify({username, password})
+                });
+            }
+
+            const data = await res.json();
+            if (!res.ok) { toast(data.error || 'Request failed.', 'error'); return; }
+
+            toast(uid ? 'Password updated.' : 'Account added.', 'success');
+            closeModal();
+            loadUsers();
+        } catch (e) {
+            toast('Network error.', 'error');
+        }
+    }
+
+    async function deleteUser(uid, username) {
+        if (!confirm(`Remove account "${username}"?`)) return;
+        try {
+            const res  = await fetch(`/api/users/${uid}`, {method: 'DELETE'});
+            const data = await res.json();
+            if (!res.ok) { toast(data.error || 'Failed to remove.', 'error'); return; }
+            toast(`"${username}" removed.`, 'success');
+            loadUsers();
+        } catch (e) {
+            toast('Network error.', 'error');
+        }
+    }
+
+    // ── Toast ─────────────────────────────────────────────────────────────────
+    function toast(msg, type = 'success') {
+        const el = document.createElement('div');
+        el.className = `toast ${type}`;
+        el.textContent = msg;
+        document.getElementById('toasts').appendChild(el);
+        setTimeout(() => el.remove(), 3200);
+    }
+
+    // ── Util ──────────────────────────────────────────────────────────────────
+    function escHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Submit modal on Enter
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeModal();
+        if (e.key === 'Enter' && document.getElementById('modal').classList.contains('open')) submitModal();
+    });
+</script>
+</body>
+</html>
