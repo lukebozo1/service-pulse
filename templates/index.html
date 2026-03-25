@@ -1214,6 +1214,54 @@
         return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+    // ── Logs ──────────────────────────────────────────────────────────────────
+    let logFilter = 'all';
+
+    function setLogFilter(btn, filter) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        logFilter = filter;
+        fetchLogs();
+    }
+
+    async function fetchLogs() {
+        try {
+            let url = '/api/logs';
+            const params = [];
+            if (logFilter === 'err') {
+                params.push('errors=1');
+            } else if (logFilter !== 'all') {
+                params.push('service=' + logFilter);
+            }
+            if (params.length) url += '?' + params.join('&');
+
+            const res  = await fetch(url);
+            const logs = await res.json();
+            renderLogs(logs);
+        } catch (e) {
+            console.error('Log fetch error', e);
+        }
+    }
+
+    function renderLogs(logs) {
+        const el = document.getElementById('log-console');
+        if (!logs.length) {
+            el.innerHTML = '<div class="log-empty">No log entries found.</div>';
+            return;
+        }
+        el.innerHTML = logs.map(l => `
+            <div class="log-entry ${l.status}">
+                <span class="log-time">${escHtml(l.time)}</span>
+                <span class="log-badge ${escHtml(l.service)}">${escHtml(l.service)}</span>
+                <span class="log-status ${l.status}">${l.status.toUpperCase()}</span>
+                <span class="log-msg" title="${escHtml(l.message)}">${escHtml(l.message)}</span>
+            </div>
+        `).join('');
+    }
+
+    setInterval(fetchLogs, 5000);
+    window.addEventListener('DOMContentLoaded', fetchLogs);
+
     // Submit modal on Enter
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape') closeModal();
