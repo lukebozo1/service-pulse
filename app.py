@@ -124,30 +124,33 @@ def background_monitor():
     while True:
         ssh_up, used_user = check_ssh_status()
         http_up = check_http_status()
+        ftp_up  = check_ftp_status()
 
         current_state["ssh_up"]        = ssh_up
         current_state["http_up"]       = http_up
+        current_state["ftp_up"]        = ftp_up
         current_state["current_user"]  = used_user
         current_state["last_check"]    = time.strftime("%H:%M:%S")
         current_state["last_check_ts"] = int(time.time())
 
         scores["ssh"]  += 50 if ssh_up  else -10
         scores["http"] += 50 if http_up else -10
+        scores["ftp"]  += 50 if ftp_up  else -10
 
         timestamp = time.strftime("%H:%M")
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute(
-            "INSERT INTO history (timestamp, ssh_points, http_points) VALUES (?, ?, ?)",
-            (timestamp, scores["ssh"], scores["http"])
+            "INSERT INTO history (timestamp, ssh_points, http_points, ftp_points) VALUES (?, ?, ?, ?)",
+            (timestamp, scores["ssh"], scores["http"], scores["ftp"])
         )
         c.execute(
             "DELETE FROM history WHERE id NOT IN "
             "(SELECT id FROM history ORDER BY id DESC LIMIT 1440)"
         )
         c.execute(
-            "INSERT INTO checks (timestamp, username, ssh_up, http_up) VALUES (?, ?, ?, ?)",
-            (time.strftime("%H:%M:%S"), used_user, int(ssh_up), int(http_up))
+            "INSERT INTO checks (timestamp, username, ssh_up, http_up, ftp_up) VALUES (?, ?, ?, ?, ?)",
+            (time.strftime("%H:%M:%S"), used_user, int(ssh_up), int(http_up), int(ftp_up))
         )
         c.execute(
             "DELETE FROM checks WHERE id NOT IN "
