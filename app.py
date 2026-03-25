@@ -202,7 +202,7 @@ def index():
 def api_data():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute('SELECT timestamp, ssh_points, http_points, ftp_points FROM history ORDER BY id DESC LIMIT 60')
+    c.execute('SELECT timestamp, ssh_points, http_points, COALESCE(ftp_points, 0) FROM history ORDER BY id DESC LIMIT 60')
     rows = c.fetchall()
     rows.reverse()
     c.execute('SELECT timestamp, username, ssh_up, http_up, ftp_up FROM checks ORDER BY id DESC LIMIT 10')
