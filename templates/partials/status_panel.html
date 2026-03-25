@@ -1,0 +1,56 @@
+<div class="card status-panel">
+    <div class="card-title">Service Status</div>
+
+    <div class="service-row">
+        <div class="service-label">
+            <span class="status-dot" id="ssh-dot"></span>
+            SSH Access
+        </div>
+        <div class="service-right">
+            <div class="score-value" id="ssh-score">—</div>
+            <div class="score-label">points</div>
+        </div>
+    </div>
+
+    <div class="service-row">
+        <div class="service-label">
+            <span class="status-dot" id="http-dot"></span>
+            HTTP Check
+        </div>
+        <div class="service-right">
+            <div class="score-value" id="http-score">—</div>
+            <div class="score-label">points</div>
+        </div>
+    </div>
+
+    <div class="service-row">
+        <div class="service-label">
+            <span class="status-dot" id="ftp-dot"></span>
+            FTP Anon
+        </div>
+        <div class="service-right">
+            <div class="score-value" id="ftp-score" style="color:var(--accent3)">—</div>
+            <div class="score-label">points</div>
+        </div>
+    </div>
+
+    <div class="active-user">
+        <div class="active-user-icon">👤</div>
+        <div class="active-user-info">
+            <div class="active-user-name" id="current-user">—</div>
+            <div class="active-user-label">Last user tried</div>
+        </div>
+    </div>
+
+    <div class="last-check">Last check: <span id="last-check">—</span></div>
+
+    <div class="countdown-bar">
+        <div class="countdown-label">
+            <span>Next check in</span>
+            <span class="countdown-value" id="countdown-value">—</span>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="countdown-fill" style="width:100%"></div>
+        </div>
+    </div>
+</div>
