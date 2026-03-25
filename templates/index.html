@@ -717,6 +717,20 @@
             font-size: 0.85rem;
         }
 
+        @keyframes log-flash {
+            0%   { background: rgba(255,69,96,0.18); }
+            100% { background: transparent; }
+        }
+        .log-entry.log-highlight {
+            animation: log-flash 2s ease forwards;
+        }
+
+        .check-circle.down { cursor: pointer; }
+        .check-circle.down:hover {
+            background: rgba(255,69,96,0.22);
+            border-color: rgba(255,69,96,0.6);
+        }
+
         /* ── Footer ── */
         .footer {
             text-align: center;
