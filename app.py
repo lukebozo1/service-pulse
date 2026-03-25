@@ -250,6 +250,16 @@ def reset_scores():
     reset_scores_flag = True
     return jsonify({"ok": True})
 
+# --- Reset Logs ---
+@app.route('/api/reset-logs', methods=['POST'])
+def reset_logs():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('DELETE FROM logs')
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
 # --- Credential Management API ---
 @app.route('/api/users', methods=['GET'])
 def list_users():
