@@ -119,7 +119,19 @@ class ShellSession:
     # ── Bind shell ──────────────────────────────────────────────────────
 
     def _exec_bind(self, cmd: str, timeout: float) -> str:
-        full = f"{cmd}; echo {CMD_END_MARKER}\n"
+        # drain any stale data left by the previous command
+        self._sock.setblocking(False)
+        try:
+            while self._sock.recv(4096):
+                pass
+        except (BlockingIOError, OSError):
+            pass
+        self._sock.setblocking(True)
+
+        # unique per-call marker so an echoed marker in the same buffer
+        # is never mistaken for the real end-of-output sentinel
+        marker = f"DONE_{uuid.uuid4().hex}"
+        full = f"{cmd}; echo {marker}\n"
         try:
             self._sock.sendall(full.encode())
         except Exception as e:
@@ -134,14 +146,14 @@ class ShellSession:
                 if not chunk:
                     break
                 buf += chunk
-                if CMD_END_MARKER.encode() in buf:
+                if marker.encode() in buf:
                     break
             except socket.timeout:
                 break
 
         output = buf.decode(errors="replace")
-        if CMD_END_MARKER in output:
-            output = output[:output.index(CMD_END_MARKER)]
+        if marker in output:
+            output = output[:output.index(marker)]
         # strip echoed command and bare prompts
         lines = [l for l in output.splitlines()
                  if cmd.strip() not in l
