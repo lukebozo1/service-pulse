@@ -1,3 +1,8 @@
+# ── AI agent (MindRouter / OpenAI-compatible) ─────────────────────────
+AGENT_API_KEY    = "YOUR_MINDROUTER_API_KEY"
+AGENT_BASE_URL   = "https://mindrouter.uidaho.edu/v1"
+AGENT_MODEL      = "gpt-4o"   # change to any model on MindRouter that supports tool use
+
 TARGET_HOST      = "10.10.40.50"
 ATTACK_INTERVAL  = 900          # seconds between attack rounds (15 min)
 LISTENER_PORT    = 8080         # port the admin panel POSTs to
