@@ -21,6 +21,7 @@ import os
 import socket
 import threading
 import time
+import uuid
 
 import paramiko
 from openai import OpenAI
