@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 import paramiko
 import requests
 import ftplib
@@ -6,14 +6,16 @@ import threading
 import time
 import sqlite3
 import random
+from functools import wraps
 
 app = Flask(__name__)
+app.secret_key = "bastion-admin-secret-key"
 
 # --- Configuration ---
-TARGET_HOST = "10.10.40.50"
-HTTP_URL = "http://10.10.40.50"
-SEARCH_TEXT = "Wikipedia"
-DB_FILE = "monitor_data.db"
+TARGET_HOST    = "10.10.40.50"
+SEARCH_TEXT    = "Wikipedia"
+DB_FILE        = "monitor_data.db"
+ADMIN_PASSWORD = "bastion-admin"   # Change this before deployment
 
 DEFAULT_USERS = [
     ("john",     "john"),
@@ -25,9 +27,19 @@ DEFAULT_USERS = [
     ("newuser",  "newuser"),
 ]
 
+DEFAULT_CONFIG = {
+    "target_host":        TARGET_HOST,
+    "search_text":        SEARCH_TEXT,
+    "attacker_url":       "http://10.10.40.100:8080/start",
+    "competition_active": "0",
+}
+
 # Global live state
 current_state     = {"ssh_up": False, "http_up": False, "ftp_up": False, "current_user": None, "last_check": None, "last_check_ts": None}
 reset_scores_flag = False
+
+# Runtime config — read by monitor thread, updated by admin panel
+runtime_config = dict(DEFAULT_CONFIG)
 
 # --- Database ---
 def init_db():
@@ -55,6 +67,9 @@ def init_db():
                   service TEXT,
                   status TEXT,
                   message TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS config
+                 (key TEXT PRIMARY KEY,
+                  value TEXT)''')
     # Migrate existing tables to add ftp columns if missing
     for sql in [
         'ALTER TABLE history ADD COLUMN ftp_points INTEGER DEFAULT 0',
@@ -64,12 +79,33 @@ def init_db():
             c.execute(sql)
         except sqlite3.OperationalError:
             pass  # column already exists
-    # Seed defaults on first run
+    # Seed credentials on first run
     c.execute('SELECT COUNT(*) FROM credentials')
     if c.fetchone()[0] == 0:
         c.executemany('INSERT INTO credentials (username, password) VALUES (?, ?)', DEFAULT_USERS)
+    # Seed config defaults (INSERT OR IGNORE — never overwrite existing values)
+    for key, value in DEFAULT_CONFIG.items():
+        c.execute('INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)', (key, value))
     conn.commit()
     conn.close()
+
+def load_runtime_config():
+    global runtime_config
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT key, value FROM config')
+    runtime_config.update(dict(c.fetchall()))
+    conn.close()
+
+def save_config_values(updates):
+    global runtime_config
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    for key, value in updates.items():
+        c.execute('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)', (key, value))
+    conn.commit()
+    conn.close()
+    runtime_config.update(updates)
 
 def get_users():
     conn = sqlite3.connect(DB_FILE)
@@ -87,8 +123,18 @@ def get_latest_points():
     conn.close()
     return {"ssh": row[0], "http": row[1], "ftp": row[2]} if row else {"ssh": 0, "http": 0, "ftp": 0}
 
+# --- Admin Auth ---
+def require_admin(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('admin'):
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated
+
 # --- Check Functions ---
 def check_ssh_status():
+    host  = runtime_config.get("target_host", TARGET_HOST)
     users = get_users()
     if not users:
         return False, None, "No credentials configured"
@@ -96,7 +142,7 @@ def check_ssh_status():
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
-        client.connect(TARGET_HOST, username=username, password=password, timeout=5)
+        client.connect(host, username=username, password=password, timeout=5)
         client.close()
         print(f"✅ SSH OK  [{username}]")
         return True, username, f"Login OK as {username}"
@@ -106,22 +152,25 @@ def check_ssh_status():
         return False, username, f"[{username}] {msg}"
 
 def check_http_status():
+    host   = runtime_config.get("target_host", TARGET_HOST)
+    search = runtime_config.get("search_text", SEARCH_TEXT)
     try:
-        r = requests.get(HTTP_URL, timeout=5)
-        if r.status_code == 200 and SEARCH_TEXT in r.text:
-            return True, f"HTTP 200, '{SEARCH_TEXT}' found"
+        r = requests.get(f"http://{host}", timeout=5)
+        if r.status_code == 200 and search in r.text:
+            return True, f"HTTP 200, '{search}' found"
         reason = f"HTTP {r.status_code}"
-        if SEARCH_TEXT not in r.text:
-            reason += f", '{SEARCH_TEXT}' not in response"
+        if search not in r.text:
+            reason += f", '{search}' not in response"
         return False, reason
     except Exception as e:
         return False, f"{type(e).__name__}: {e}"
 
 def check_ftp_status():
+    host = runtime_config.get("target_host", TARGET_HOST)
     try:
         ftp = ftplib.FTP(timeout=5)
-        ftp.connect(TARGET_HOST)
-        ftp.login()  # anonymous, no password
+        ftp.connect(host)
+        ftp.login()  # anonymous
         ftp.quit()
         print("✅ FTP OK  [anonymous]")
         return True, "Anonymous login OK"
@@ -134,6 +183,7 @@ def check_ftp_status():
 def background_monitor():
     global current_state, reset_scores_flag
     init_db()
+    load_runtime_config()
     scores = get_latest_points()
     while True:
         if reset_scores_flag:
@@ -193,11 +243,76 @@ def background_monitor():
 
 threading.Thread(target=background_monitor, daemon=True).start()
 
-# --- Routes ---
+# --- Main Routes ---
 @app.route('/')
 def index():
     return render_template('index.html')
 
+# --- Admin Routes ---
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    error = None
+    if request.method == 'POST':
+        if request.form.get('password') == ADMIN_PASSWORD:
+            session['admin'] = True
+            return redirect(url_for('admin_panel'))
+        error = "Invalid password."
+    return render_template('admin_login.html', error=error)
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin', None)
+    return redirect(url_for('admin_login'))
+
+@app.route('/admin')
+@require_admin
+def admin_panel():
+    return render_template('admin.html')
+
+@app.route('/api/admin/config', methods=['GET'])
+@require_admin
+def admin_get_config():
+    return jsonify({
+        "target_host":        runtime_config.get("target_host", TARGET_HOST),
+        "search_text":        runtime_config.get("search_text", SEARCH_TEXT),
+        "attacker_url":       runtime_config.get("attacker_url", DEFAULT_CONFIG["attacker_url"]),
+        "competition_active": runtime_config.get("competition_active", "0") == "1",
+    })
+
+@app.route('/api/admin/config', methods=['POST'])
+@require_admin
+def admin_save_config():
+    data = request.get_json() or {}
+    updates = {}
+    if 'target_host' in data:
+        val = (data['target_host'] or '').strip()
+        if not val:
+            return jsonify({"error": "target_host cannot be empty"}), 400
+        updates['target_host'] = val
+    if 'search_text' in data:
+        updates['search_text'] = (data['search_text'] or '').strip()
+    if 'attacker_url' in data:
+        val = (data['attacker_url'] or '').strip()
+        if not val:
+            return jsonify({"error": "attacker_url cannot be empty"}), 400
+        updates['attacker_url'] = val
+    if updates:
+        save_config_values(updates)
+    return jsonify({"ok": True})
+
+@app.route('/api/admin/start', methods=['POST'])
+@require_admin
+def admin_start_competition():
+    attacker_url = runtime_config.get("attacker_url", DEFAULT_CONFIG["attacker_url"])
+    try:
+        resp = requests.post(attacker_url, timeout=5, json={"action": "start"})
+        resp.raise_for_status()
+        save_config_values({"competition_active": "1"})
+        return jsonify({"ok": True, "attacker_status": resp.status_code})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+# --- Monitoring API ---
 @app.route('/api/data')
 def api_data():
     conn = sqlite3.connect(DB_FILE)
@@ -215,11 +330,10 @@ def api_data():
         "recent_checks": [{"time": r[0], "user": r[1], "ssh_up": bool(r[2]), "http_up": bool(r[3]), "ftp_up": bool(r[4])} for r in checks]
     })
 
-# --- Logs API ---
 @app.route('/api/logs')
 def api_logs():
-    service = request.args.get('service')   # optional filter: SSH, HTTP, FTP
-    errors  = request.args.get('errors')    # optional filter: errors only
+    service = request.args.get('service')
+    errors  = request.args.get('errors')
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     query  = 'SELECT timestamp, service, status, message FROM logs'
@@ -238,7 +352,6 @@ def api_logs():
     conn.close()
     return jsonify([{"time": r[0], "service": r[1], "status": r[2], "message": r[3]} for r in rows])
 
-# --- Reset Scores ---
 @app.route('/api/reset-scores', methods=['POST'])
 def reset_scores():
     global reset_scores_flag
@@ -250,7 +363,6 @@ def reset_scores():
     reset_scores_flag = True
     return jsonify({"ok": True})
 
-# --- Reset Logs ---
 @app.route('/api/reset-logs', methods=['POST'])
 def reset_logs():
     conn = sqlite3.connect(DB_FILE)
