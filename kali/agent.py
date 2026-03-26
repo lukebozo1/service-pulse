@@ -189,9 +189,9 @@ def _try_bind_shell(log) -> ShellSession | None:
             sock.recv(512)
         except socket.timeout:
             pass
-        # disable terminal echo so sent commands aren't reflected back in output
-        sock.sendall(b"stty -echo\n")
-        time.sleep(0.3)
+        # attempt to disable terminal echo (best-effort; may not work on FIFO shells)
+        sock.sendall(b"stty -echo 2>/dev/null; echo STTY_OK\n")
+        time.sleep(0.5)
         try:
             sock.recv(256)
         except socket.timeout:
