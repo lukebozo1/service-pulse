@@ -308,3 +308,19 @@ def start(log):
     """Start the agent loop as a background daemon thread."""
     threading.Thread(target=agent_loop, args=(log,), daemon=True).start()
     log("[agent] AI agent thread launched")
+
+
+# ── Standalone entry point ──────────────────────────────────────────────
+
+if __name__ == "__main__":
+    from datetime import datetime
+
+    def log(msg):
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
+
+    log(f"AI agent starting — target {TARGET_HOST}:{BIND_PORT}")
+    log(f"Model: {AGENT_MODEL}  |  Polling every {POLL_INTERVAL}s")
+    try:
+        agent_loop(log)   # runs forever in foreground
+    except KeyboardInterrupt:
+        log("Stopped.")
