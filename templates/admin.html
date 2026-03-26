@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B.A.S.T.I.O.N. — Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+<div class="container">
+
+    <header>
+        <div class="brand">
+            <h1>B.A.S.T.I.O.N.</h1>
+            <p class="bastion-subtitle">Admin Panel</p>
+        </div>
+        <div class="admin-header-actions">
+            <a href="/" class="btn-ghost">Dashboard</a>
+            <a href="/admin/logout" class="btn-ghost btn-ghost-danger">Logout</a>
+        </div>
+    </header>
+
+    <!-- Competition Control -->
+    <div class="card admin-section">
+        <div class="admin-section-header">
+            <span class="card-title" style="margin-bottom:0">Competition Control</span>
+            <span id="comp-status-badge" class="comp-badge comp-badge-waiting">Waiting</span>
+        </div>
+
+        <div class="comp-body">
+            <div class="comp-info">
+                <p class="comp-desc">
+                    Sends an HTTP POST signal to the attacker machine, authorizing it to begin
+                    interfacing with <span id="comp-target" class="mono">10.10.40.50</span>.
+                    Once started this cannot be undone without restarting the app.
+                </p>
+                <div class="kali-hint">
+                    <span class="hint-label">Kali listener</span>
+                    <code>python3 -c "from http.server import HTTPServer,BaseHTTPRequestHandler; H=type('H',<br>(BaseHTTPRequestHandler,),{'do_POST':lambda s:(print('[!] START received'),s.send_response(200),s.end_headers(),s.wfile.write(b'ok'))}); HTTPServer(('0.0.0.0',8080),H).serve_forever()"</code>
+                </div>
+            </div>
+            <button id="btn-start" class="btn-start" onclick="startCompetition()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                Start Competition
+            </button>
+        </div>
+    </div>
+
+    <div class="admin-grid">
+
+        <!-- Configuration -->
+        <div class="card admin-section">
+            <div class="card-title">Configuration</div>
+
+            <div class="field-group">
+                <label class="field-label" for="cfg-host">Target Host</label>
+                <input class="field-input" id="cfg-host" type="text" placeholder="10.10.40.50" spellcheck="false">
+                <p class="field-hint">IP or hostname of the monitored machine</p>
+            </div>
+
+            <div class="field-group">
+                <label class="field-label" for="cfg-search">HTTP Search Text</label>
+                <input class="field-input" id="cfg-search" type="text" placeholder="Wikipedia" spellcheck="false">
+                <p class="field-hint">String that must appear in the HTTP response body</p>
+            </div>
+
+            <div class="field-group">
+                <label class="field-label" for="cfg-attacker">Attacker Machine URL</label>
+                <input class="field-input" id="cfg-attacker" type="text" placeholder="http://10.10.40.100:8080/start" spellcheck="false">
+                <p class="field-hint">Endpoint that receives the Start Competition POST request</p>
+            </div>
+
+            <button class="btn-primary" onclick="saveConfig()">Save Configuration</button>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card admin-section">
+            <div class="card-title">Quick Actions</div>
+
+            <div class="action-group">
+                <div class="action-item">
+                    <div class="action-info">
+                        <span class="action-title">Reset Scores</span>
+                        <span class="action-desc">Clear all score history and reset to zero</span>
+                    </div>
+                    <button class="btn-danger-outline" onclick="resetScores()">Reset</button>
+                </div>
+                <div class="action-item">
+                    <div class="action-info">
+                        <span class="action-title">Reset Logs</span>
+                        <span class="action-desc">Clear all service log entries</span>
+                    </div>
+                    <button class="btn-danger-outline" onclick="resetLogs()">Reset</button>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /admin-grid -->
+
+    <div class="footer">Admin Panel &bull; B.A.S.T.I.O.N.</div>
+
+</div><!-- /container -->
+
+<div class="toast-container" id="toasts"></div>
+
+<script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+</body>
+</html>
