@@ -29,6 +29,7 @@ from datetime import datetime
 
 from config import LISTENER_PORT, ATTACK_INTERVAL, TARGET_HOST
 from attacks import ssh_deface, vsftpd_backdoor, backdoor_exploit
+import agent
 
 # ── State ─────────────────────────────────────────────────────────────
 _started = False
