@@ -85,6 +85,7 @@ def start_attacks():
         _started = True
     log("*** Competition started — launching attack loop ***")
     threading.Thread(target=attack_loop, daemon=True).start()
+    agent.start(log)
     return True
 
 
