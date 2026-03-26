@@ -1,0 +1,7 @@
+# checker
+flask>=3.0
+paramiko>=2.12
+requests>=2.31
+
+# kali agent
+openai>=1.0
