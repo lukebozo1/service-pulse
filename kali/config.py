@@ -1,6 +1,6 @@
 # ── AI agent (MindRouter / OpenAI-compatible) ─────────────────────────
 AGENT_ENABLED    = True        # set False on Kali (no MindRouter access); run agent.py standalone instead
-AGENT_API_KEY    = "YOUR_MINDROUTER_API_KEY"
+AGENT_API_KEY    = "mr2_yA22FS2Ddu_VtOqVsdUoH6nS5SppQ8WlzpayunTANyQ"
 AGENT_BASE_URL   = "https://mindrouter.uidaho.edu/v1"
 AGENT_MODEL      = "qwen/qwen3.5-400b"
 
