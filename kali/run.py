@@ -14,8 +14,12 @@ Each round runs three attacks in sequence:
     2. vsftpd_backdoor  — CVE-2011-2523 root shell → sysmon user + cron persistence
     3. backdoor_exploit — use sysmon SSH or bind shell to stop all services
 
+Also starts an AI agent (agent.py) that continuously uses planted backdoors
+to adaptively attack the target between scripted rounds.
+
 Requires:
-    pip3 install paramiko
+    pip3 install paramiko anthropic
+    ANTHROPIC_API_KEY env var set
 """
 
 import time
