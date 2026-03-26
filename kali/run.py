@@ -83,9 +83,13 @@ def start_attacks():
         if _started:
             return False
         _started = True
+    from config import AGENT_ENABLED
     log("*** Competition started — launching attack loop ***")
     threading.Thread(target=attack_loop, daemon=True).start()
-    agent.start(log)
+    if AGENT_ENABLED:
+        agent.start(log)
+    else:
+        log("*** AI agent disabled (run agent.py separately) ***")
     return True
 
 
