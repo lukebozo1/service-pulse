@@ -138,6 +138,7 @@ class ShellSession:
             raise ConnectionError(f"bind send failed: {e}")
 
         buf = b""
+        nl_marker = b"\n" + marker.encode()
         self._sock.settimeout(timeout)
         deadline = time.time() + timeout
         while time.time() < deadline:
@@ -146,14 +147,18 @@ class ShellSession:
                 if not chunk:
                     break
                 buf += chunk
-                if marker.encode() in buf:
+                # anchor to newline so the marker inside the echoed command
+                # line ("cmd; echo DONE_uuid") is not mistaken for the real
+                # end-of-output sentinel ("\nDONE_uuid")
+                if nl_marker in buf:
                     break
             except socket.timeout:
                 break
 
         output = buf.decode(errors="replace")
-        if marker in output:
-            output = output[:output.index(marker)]
+        nl_marker_str = "\n" + marker
+        if nl_marker_str in output:
+            output = output[:output.index(nl_marker_str)]
         # strip echoed command and bare prompts
         lines = [l for l in output.splitlines()
                  if cmd.strip() not in l
