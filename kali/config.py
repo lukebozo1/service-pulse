@@ -13,6 +13,11 @@ DEFAULT_CREDS = [
     ("newuser",  "newuser"),
 ]
 
+BIND_PORT        = 4444                       # port the planted bind shell listens on
+BIND_SCRIPT_PATH = "/usr/local/bin/.syscheck" # where the bind shell launcher is written
+SYSMON_USER      = "sysmon"
+SYSMON_PASS      = "sysmon123"
+
 # Common nginx web root locations to try in order
 NGINX_ROOTS = [
     "/var/www/html",
