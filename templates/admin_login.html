@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B.A.S.T.I.O.N. — Admin Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+<div class="login-wrap">
+    <div class="login-card">
+        <div class="login-brand">
+            <h1>B.A.S.T.I.O.N.</h1>
+            <p class="login-sub">Admin Access</p>
+        </div>
+
+        <form class="login-form" method="POST">
+            <div class="login-field">
+                <label for="password">Password</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    placeholder="Enter admin password"
+                    autofocus
+                    autocomplete="current-password"
+                >
+            </div>
+            {% if error %}
+            <p class="login-error">{{ error }}</p>
+            {% endif %}
+            <button type="submit" class="btn-primary btn-full">Login</button>
+        </form>
+
+        <a href="/" class="login-back">Back to dashboard</a>
+    </div>
+</div>
+</body>
+</html>
