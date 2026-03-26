@@ -95,6 +95,10 @@ def load_runtime_config():
     c = conn.cursor()
     c.execute('SELECT key, value FROM config')
     runtime_config.update(dict(c.fetchall()))
+    # Always reset competition state on startup — a restart means a fresh session
+    c.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('competition_active', '0')")
+    conn.commit()
+    runtime_config['competition_active'] = '0'
     conn.close()
 
 def save_config_values(updates):
