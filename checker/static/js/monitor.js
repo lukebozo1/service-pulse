@@ -24,6 +24,8 @@ async function fetchData() {
         const data = await res.json();
         const st   = data.current_state;
         const hist = data.history;
+        const customSvcs   = data.custom_services       || [];
+        const customRecent = data.custom_recent_checks  || {};
 
         document.getElementById('ssh-dot').className  = 'status-dot' + (st.ssh_up  ? ' up' : '');
         document.getElementById('http-dot').className = 'status-dot' + (st.http_up ? ' up' : '');
@@ -38,8 +40,10 @@ async function fetchData() {
 
         if (st.last_check_ts) lastCheckTs = st.last_check_ts;
 
-        renderChart(hist);
-        renderChecks(data.recent_checks || []);
+        renderChart(hist, customSvcs);
+        renderChecks(data.recent_checks || [], customSvcs, customRecent);
+        renderCustomStatuses(customSvcs);
+        renderChartLegend(customSvcs);
     } catch (e) {
         console.error('Poll error', e);
     }
