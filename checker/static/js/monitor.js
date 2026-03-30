@@ -52,93 +52,144 @@ async function fetchData() {
 setInterval(fetchData, 5000);
 window.addEventListener('DOMContentLoaded', fetchData);
 
+// Chart helpers
+function hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function makeDataset(label, data, color, extra) {
+    return {
+        label,
+        data,
+        borderColor: color,
+        backgroundColor: hexToRgba(color, 0.07),
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        ...extra,
+    };
+}
+
 // Chart
-function renderChart(history) {
+function renderChart(history, customSvcs) {
     const ctx    = document.getElementById('scoreChart');
     const labels = history.map(h => h.time);
     const ssh    = history.map(h => h.ssh);
     const http   = history.map(h => h.http);
     const ftp    = history.map(h => h.ftp ?? 0);
 
-    if (chart) {
+    if (!chart) {
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    makeDataset('SSH',  ssh,  '#00e587'),
+                    makeDataset('HTTP', http, '#0099ff'),
+                    makeDataset('FTP',  ftp,  '#ff9f40'),
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#0e1117',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        titleColor: '#9ca3b0',
+                        bodyColor: '#e8eaf0',
+                        padding: 12,
+                        callbacks: {
+                            label: ctx => ` ${ctx.dataset.label}: ${ctx.raw} pts`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        grid:  { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#5a6478', font: { size: 12 } }
+                    },
+                    x: {
+                        grid:  { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#5a6478', font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }
+                    }
+                }
+            }
+        });
+    } else {
         chart.data.labels           = labels;
         chart.data.datasets[0].data = ssh;
         chart.data.datasets[1].data = http;
         chart.data.datasets[2].data = ftp;
-        chart.update('none');
-        return;
     }
 
-    chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [
-                {
-                    label: 'SSH',
-                    data: ssh,
-                    borderColor: '#00e587',
-                    backgroundColor: 'rgba(0,229,135,0.07)',
-                    borderWidth: 2.5,
-                    fill: true,
-                    tension: 0.35,
-                    pointRadius: 0,
-                    pointHoverRadius: 5,
-                },
-                {
-                    label: 'HTTP',
-                    data: http,
-                    borderColor: '#0099ff',
-                    backgroundColor: 'rgba(0,153,255,0.07)',
-                    borderWidth: 2.5,
-                    fill: true,
-                    tension: 0.35,
-                    pointRadius: 0,
-                    pointHoverRadius: 5,
-                },
-                {
-                    label: 'FTP',
-                    data: ftp,
-                    borderColor: '#ff9f40',
-                    backgroundColor: 'rgba(255,159,64,0.07)',
-                    borderWidth: 2.5,
-                    fill: true,
-                    tension: 0.35,
-                    pointRadius: 0,
-                    pointHoverRadius: 5,
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: '#0e1117',
-                    borderColor: 'rgba(255,255,255,0.1)',
-                    borderWidth: 1,
-                    titleColor: '#9ca3b0',
-                    bodyColor: '#e8eaf0',
-                    padding: 12,
-                    callbacks: {
-                        label: ctx => ` ${ctx.dataset.label}: ${ctx.raw} pts`
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    grid:  { color: 'rgba(255,255,255,0.05)' },
-                    ticks: { color: '#5a6478', font: { size: 12 } }
-                },
-                x: {
-                    grid:  { color: 'rgba(255,255,255,0.05)' },
-                    ticks: { color: '#5a6478', font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }
-                }
-            }
+    // Sync custom service datasets (indices 3+)
+    const customIds = customSvcs.map(s => s.id);
+
+    // Remove datasets for deleted services
+    chart.data.datasets = chart.data.datasets.filter((ds, i) => i < 3 || customIds.includes(ds._svcId));
+
+    // Add or update a dataset per custom service
+    customSvcs.forEach(svc => {
+        const pts      = history.map(h => (h.custom && h.custom[String(svc.id)] != null) ? h.custom[String(svc.id)] : null);
+        const existing = chart.data.datasets.find(ds => ds._svcId === svc.id);
+        if (existing) {
+            existing.data        = pts;
+            existing.borderColor = svc.color;
+            existing.backgroundColor = hexToRgba(svc.color, 0.07);
+        } else {
+            const ds = makeDataset(svc.name, pts, svc.color);
+            ds._svcId = svc.id;
+            chart.data.datasets.push(ds);
         }
     });
+
+    chart.update('none');
+}
+
+// Chart legend (static + dynamic custom services)
+function renderChartLegend(customSvcs) {
+    const legend = document.getElementById('chart-legend');
+    if (!legend) return;
+    let html = `
+        <div class="legend-item"><div class="legend-pip" style="background:#00e587"></div>SSH</div>
+        <div class="legend-item"><div class="legend-pip" style="background:#0099ff"></div>HTTP</div>
+        <div class="legend-item"><div class="legend-pip" style="background:#ff9f40"></div>FTP</div>
+    `;
+    customSvcs.forEach(svc => {
+        html += `<div class="legend-item"><div class="legend-pip" style="background:${escHtml(svc.color)}"></div>${escHtml(svc.name)}</div>`;
+    });
+    legend.innerHTML = html;
+}
+
+// Custom service status rows in the status panel
+function renderCustomStatuses(customSvcs) {
+    const container = document.getElementById('custom-service-rows');
+    if (!container) return;
+    container.innerHTML = customSvcs.map(svc => {
+        const dotStyle = svc.up
+            ? `background:${escHtml(svc.color)};box-shadow:0 0 0 3px ${escHtml(svc.color)}33`
+            : '';
+        return `
+            <div class="service-row">
+                <div class="service-label">
+                    <span class="status-dot" style="${dotStyle}"></span>
+                    ${escHtml(svc.name)}
+                </div>
+                <div class="service-right">
+                    <div class="score-value" style="color:${escHtml(svc.color)}">${svc.score}</div>
+                    <div class="score-label">points</div>
+                </div>
+            </div>`;
+    }).join('');
 }
 
 // Recent checks
