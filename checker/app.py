@@ -562,5 +562,72 @@ def delete_user(uid):
         return jsonify({"error": "user not found"}), 404
     return jsonify({"ok": True})
 
+@app.route('/api/admin/services', methods=['GET'])
+@require_admin
+def admin_list_services():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT id, name, type, host, port, search_text, color FROM custom_services ORDER BY id')
+    rows = c.fetchall()
+    conn.close()
+    return jsonify([
+        {"id": r[0], "name": r[1], "type": r[2], "host": r[3], "port": r[4], "search_text": r[5] or '', "color": r[6]}
+        for r in rows
+    ])
+
+@app.route('/api/admin/services', methods=['POST'])
+@require_admin
+def admin_add_service():
+    data        = request.get_json() or {}
+    name        = (data.get('name')        or '').strip()
+    svc_type    = (data.get('type')        or '').strip().lower()
+    host        = (data.get('host')        or '').strip()
+    port        = data.get('port')
+    search_text = (data.get('search_text') or '').strip()
+    color       = (data.get('color')       or '#a78bfa').strip()
+
+    if not name:
+        return jsonify({"error": "name is required"}), 400
+    if svc_type not in ('http', 'tcp'):
+        return jsonify({"error": "type must be http or tcp"}), 400
+    if not host:
+        return jsonify({"error": "host is required"}), 400
+    if svc_type == 'tcp' and not port:
+        return jsonify({"error": "port is required for TCP checks"}), 400
+    try:
+        port_int = int(port) if port else None
+    except (ValueError, TypeError):
+        return jsonify({"error": "port must be a number"}), 400
+
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute(
+        'INSERT INTO custom_services (name, type, host, port, search_text, color) VALUES (?, ?, ?, ?, ?, ?)',
+        (name, svc_type, host, port_int, search_text or None, color)
+    )
+    conn.commit()
+    new_id = c.lastrowid
+    conn.close()
+    return jsonify({"id": new_id, "name": name}), 201
+
+@app.route('/api/admin/services/<int:svc_id>', methods=['DELETE'])
+@require_admin
+def admin_delete_service(svc_id):
+    global custom_service_state, custom_scores
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('DELETE FROM custom_services WHERE id=?', (svc_id,))
+    found = c.rowcount > 0
+    if found:
+        c.execute('DELETE FROM custom_service_history WHERE service_id=?', (svc_id,))
+        c.execute('DELETE FROM custom_service_checks WHERE service_id=?',  (svc_id,))
+    conn.commit()
+    conn.close()
+    if not found:
+        return jsonify({"error": "service not found"}), 404
+    custom_service_state.pop(svc_id, None)
+    custom_scores.pop(svc_id, None)
+    return jsonify({"ok": True})
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=False)
