@@ -176,6 +176,36 @@ def require_admin(f):
     return decorated
 
 # --- Check Functions ---
+def check_custom_service(svc):
+    svc_type = svc['type']
+    host     = svc['host']
+    if svc_type == 'http':
+        port   = svc.get('port') or 80
+        search = svc.get('search_text') or ''
+        url    = f"http://{host}" if port == 80 else f"http://{host}:{port}"
+        try:
+            r = requests.get(url, timeout=5)
+            if r.status_code != 200:
+                return False, f"HTTP {r.status_code}"
+            if search and search not in r.text:
+                return False, f"HTTP 200 but '{search}' not found"
+            return True, "HTTP 200 OK" + (f", '{search}' found" if search else '')
+        except Exception as e:
+            return False, f"{type(e).__name__}: {e}"
+    elif svc_type == 'tcp':
+        port = int(svc.get('port') or 0)
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5)
+            result = sock.connect_ex((host, port))
+            sock.close()
+            if result == 0:
+                return True, f"TCP:{port} open"
+            return False, f"TCP:{port} refused (errno {result})"
+        except Exception as e:
+            return False, f"{type(e).__name__}: {e}"
+    return False, f"Unknown type: {svc_type}"
+
 def check_ssh_status():
     host  = runtime_config.get("target_host", TARGET_HOST)
     users = get_users()
