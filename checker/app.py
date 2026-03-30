@@ -254,13 +254,15 @@ def check_ftp_status():
 
 # --- Background Monitor ---
 def background_monitor():
-    global current_state, reset_scores_flag
+    global current_state, reset_scores_flag, custom_service_state, custom_scores
     init_db()
     load_runtime_config()
-    scores = get_latest_points()
+    scores        = get_latest_points()
+    custom_scores = get_latest_custom_points()
     while True:
         if reset_scores_flag:
-            scores = {"ssh": 0, "http": 0, "ftp": 0}
+            scores        = {"ssh": 0, "http": 0, "ftp": 0}
+            custom_scores = {}
             reset_scores_flag = False
         ssh_up, used_user, ssh_msg = check_ssh_status()
         http_up, http_msg          = check_http_status()
@@ -277,26 +279,29 @@ def background_monitor():
         scores["http"] += 50 if http_up else -10
         scores["ftp"]  += 50 if ftp_up  else -10
 
+        # Custom service checks
+        custom_svcs    = get_custom_services()
+        custom_results = {}
+        for svc in custom_svcs:
+            up, msg = check_custom_service(svc)
+            custom_results[svc['id']] = (up, msg)
+            custom_service_state[svc['id']] = {"up": up, "name": svc['name'], "color": svc['color']}
+            custom_scores[svc['id']] = custom_scores.get(svc['id'], 0) + (50 if up else -10)
+
         timestamp = time.strftime("%H:%M")
+        ts        = time.strftime("%Y-%m-%d %H:%M:%S")
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute(
             "INSERT INTO history (timestamp, ssh_points, http_points, ftp_points) VALUES (?, ?, ?, ?)",
             (timestamp, scores["ssh"], scores["http"], scores["ftp"])
         )
-        c.execute(
-            "DELETE FROM history WHERE id NOT IN "
-            "(SELECT id FROM history ORDER BY id DESC LIMIT 1440)"
-        )
+        c.execute("DELETE FROM history WHERE id NOT IN (SELECT id FROM history ORDER BY id DESC LIMIT 1440)")
         c.execute(
             "INSERT INTO checks (timestamp, username, ssh_up, http_up, ftp_up) VALUES (?, ?, ?, ?, ?)",
             (time.strftime("%H:%M:%S"), used_user, int(ssh_up), int(http_up), int(ftp_up))
         )
-        c.execute(
-            "DELETE FROM checks WHERE id NOT IN "
-            "(SELECT id FROM checks ORDER BY id DESC LIMIT 10)"
-        )
-        ts = time.strftime("%Y-%m-%d %H:%M:%S")
+        c.execute("DELETE FROM checks WHERE id NOT IN (SELECT id FROM checks ORDER BY id DESC LIMIT 10)")
         c.executemany(
             "INSERT INTO logs (timestamp, service, status, message) VALUES (?, ?, ?, ?)",
             [
@@ -305,10 +310,32 @@ def background_monitor():
                 (ts, 'FTP',  'up' if ftp_up  else 'down', ftp_msg),
             ]
         )
-        c.execute(
-            "DELETE FROM logs WHERE id NOT IN "
-            "(SELECT id FROM logs ORDER BY id DESC LIMIT 300)"
-        )
+        for svc in custom_svcs:
+            svc_id   = svc['id']
+            up, msg  = custom_results[svc_id]
+            c.execute(
+                "INSERT INTO custom_service_history (timestamp, service_id, points) VALUES (?, ?, ?)",
+                (timestamp, svc_id, custom_scores[svc_id])
+            )
+            c.execute(
+                "DELETE FROM custom_service_history WHERE service_id=? AND id NOT IN "
+                "(SELECT id FROM custom_service_history WHERE service_id=? ORDER BY id DESC LIMIT 1440)",
+                (svc_id, svc_id)
+            )
+            c.execute(
+                "INSERT INTO custom_service_checks (timestamp, service_id, up) VALUES (?, ?, ?)",
+                (time.strftime("%H:%M:%S"), svc_id, int(up))
+            )
+            c.execute(
+                "DELETE FROM custom_service_checks WHERE service_id=? AND id NOT IN "
+                "(SELECT id FROM custom_service_checks WHERE service_id=? ORDER BY id DESC LIMIT 10)",
+                (svc_id, svc_id)
+            )
+            c.execute(
+                "INSERT INTO logs (timestamp, service, status, message) VALUES (?, ?, ?, ?)",
+                (ts, svc['name'], 'up' if up else 'down', msg)
+            )
+        c.execute("DELETE FROM logs WHERE id NOT IN (SELECT id FROM logs ORDER BY id DESC LIMIT 300)")
         conn.commit()
         conn.close()
 
