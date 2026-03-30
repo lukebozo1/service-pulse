@@ -73,6 +73,25 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS config
                  (key TEXT PRIMARY KEY,
                   value TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS custom_services
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  name TEXT NOT NULL,
+                  type TEXT NOT NULL,
+                  host TEXT NOT NULL,
+                  port INTEGER,
+                  search_text TEXT,
+                  color TEXT NOT NULL DEFAULT '#a78bfa',
+                  enabled INTEGER NOT NULL DEFAULT 1)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS custom_service_history
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  timestamp TEXT,
+                  service_id INTEGER,
+                  points INTEGER)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS custom_service_checks
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  timestamp TEXT,
+                  service_id INTEGER,
+                  up INTEGER)''')
     # Migrate existing tables to add ftp columns if missing
     for sql in [
         'ALTER TABLE history ADD COLUMN ftp_points INTEGER DEFAULT 0',
