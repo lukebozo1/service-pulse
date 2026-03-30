@@ -208,10 +208,30 @@ function makeCircles(checks, key, service) {
     }).join('');
 }
 
-function renderChecks(checks) {
+function renderChecks(checks, customSvcs, customRecent) {
     document.getElementById('checks-ssh').innerHTML  = makeCircles(checks, 'ssh_up',  'SSH');
     document.getElementById('checks-http').innerHTML = makeCircles(checks, 'http_up', 'HTTP');
     document.getElementById('checks-ftp').innerHTML  = makeCircles(checks, 'ftp_up',  'FTP');
+
+    const container = document.getElementById('custom-checks-rows');
+    if (!container) return;
+    container.innerHTML = customSvcs.map(svc => {
+        // API returns newest-first; makeCircles expects newest at index 0
+        const svcChecks = (customRecent[String(svc.id)] || []).map(c => ({ ...c, _up: c.up }));
+        const slots     = Array(10).fill(null);
+        svcChecks.forEach((c, i) => { slots[i] = c; });
+        const circles = slots.map(c => {
+            if (!c) return `<div class="check-circle empty"></div>`;
+            return `<div class="check-circle ${c.up ? 'up' : 'down'}" title="${escHtml(c.time)}">
+                ${c.up ? arrowUp : arrowDown}
+                <span class="check-circle-time">${escHtml(c.time.slice(0,5))}</span>
+            </div>`;
+        }).join('');
+        return `<div class="check-row">
+            <div class="check-row-label" style="color:${escHtml(svc.color)};width:auto;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(svc.name)}">${escHtml(svc.name)}</div>
+            <div class="check-circles">${circles}</div>
+        </div>`;
+    }).join('');
 }
 
 // Reset scores
