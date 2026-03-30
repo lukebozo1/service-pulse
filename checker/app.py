@@ -141,6 +141,23 @@ def get_users():
     conn.close()
     return rows
 
+def get_latest_custom_points():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('''SELECT service_id, points FROM custom_service_history
+                 WHERE id IN (SELECT MAX(id) FROM custom_service_history GROUP BY service_id)''')
+    rows = c.fetchall()
+    conn.close()
+    return {r[0]: r[1] for r in rows}
+
+def get_custom_services():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT id, name, type, host, port, search_text, color FROM custom_services WHERE enabled=1 ORDER BY id')
+    rows = c.fetchall()
+    conn.close()
+    return [{"id": r[0], "name": r[1], "type": r[2], "host": r[3], "port": r[4], "search_text": r[5], "color": r[6]} for r in rows]
+
 def get_latest_points():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
