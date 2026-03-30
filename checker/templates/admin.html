@@ -100,9 +100,72 @@
 
     </div><!-- /admin-grid -->
 
+    <!-- Custom Services Checker -->
+    <div class="card admin-section">
+        <div class="admin-section-header">
+            <span class="card-title" style="margin-bottom:0">Service Checker</span>
+            <button class="btn-primary" style="font-size:0.82rem;padding:8px 16px" onclick="openAddServiceModal()">+ Add Service</button>
+        </div>
+        <p class="svc-desc">Monitor additional services alongside SSH, HTTP, and FTP. Each service gets its own score line on the graph.</p>
+        <div id="svc-empty" class="svc-empty">No custom services configured.</div>
+        <table class="svc-table" id="svc-table" style="display:none">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Host</th>
+                    <th>Port</th>
+                    <th>Search Text</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="svc-tbody"></tbody>
+        </table>
+    </div>
+
     <div class="footer">Admin Panel &bull; B.A.S.T.I.O.N.</div>
 
 </div><!-- /container -->
+
+<!-- Add Service Modal -->
+<div class="modal-overlay" id="svc-modal">
+    <div class="modal">
+        <div class="modal-title">Add Custom Service</div>
+        <div class="form-group">
+            <label class="form-label">Service Name</label>
+            <input class="form-input" id="svc-name" type="text" placeholder="e.g. DNS, SMTP, Custom HTTP" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Check Type</label>
+            <select class="form-input" id="svc-type" onchange="onSvcTypeChange()">
+                <option value="http">HTTP</option>
+                <option value="tcp">TCP Port</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Host</label>
+            <input class="form-input" id="svc-host" type="text" placeholder="10.10.40.50" autocomplete="off">
+        </div>
+        <div class="form-group" id="svc-port-group">
+            <label class="form-label">Port <span id="svc-port-hint" class="form-hint">(optional, defaults to 80)</span></label>
+            <input class="form-input" id="svc-port" type="number" placeholder="80" min="1" max="65535">
+        </div>
+        <div class="form-group" id="svc-search-group">
+            <label class="form-label">Search Text <span class="form-hint">(optional)</span></label>
+            <input class="form-input" id="svc-search" type="text" placeholder="String that must appear in response" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Color</label>
+            <div class="color-swatches" id="color-swatches"></div>
+            <input type="hidden" id="svc-color" value="#a78bfa">
+        </div>
+        <div class="modal-actions">
+            <button class="btn-ghost" onclick="closeSvcModal()">Cancel</button>
+            <button class="btn-primary" onclick="submitAddService()">Add Service</button>
+        </div>
+    </div>
+</div>
 
 <div class="toast-container" id="toasts"></div>
 
