@@ -497,6 +497,8 @@ def reset_scores():
     c = conn.cursor()
     c.execute('DELETE FROM history')
     c.execute('DELETE FROM checks')
+    c.execute('DELETE FROM custom_service_history')
+    c.execute('DELETE FROM custom_service_checks')
     conn.commit()
     conn.close()
     reset_scores_flag = True
