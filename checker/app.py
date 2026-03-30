@@ -36,8 +36,10 @@ DEFAULT_CONFIG = {
 }
 
 # Global live state
-current_state     = {"ssh_up": False, "http_up": False, "ftp_up": False, "current_user": None, "last_check": None, "last_check_ts": None}
-reset_scores_flag = False
+current_state        = {"ssh_up": False, "http_up": False, "ftp_up": False, "current_user": None, "last_check": None, "last_check_ts": None}
+reset_scores_flag    = False
+custom_service_state = {}  # {service_id: {"up": bool, "name": str, "color": str}}
+custom_scores        = {}  # {service_id: int}
 
 # Runtime config — read by monitor thread, updated by admin panel
 runtime_config = dict(DEFAULT_CONFIG)
