@@ -420,14 +420,52 @@ def api_data():
     c.execute('SELECT timestamp, ssh_points, http_points, COALESCE(ftp_points, 0) FROM history ORDER BY id DESC LIMIT 60')
     rows = c.fetchall()
     rows.reverse()
+
+    c.execute('SELECT id, name, color FROM custom_services WHERE enabled=1 ORDER BY id')
+    custom_svcs_meta = [{"id": r[0], "name": r[1], "color": r[2]} for r in c.fetchall()]
+
+    custom_hist = {}
+    for svc in custom_svcs_meta:
+        c.execute('SELECT points FROM custom_service_history WHERE service_id=? ORDER BY id DESC LIMIT 60', (svc['id'],))
+        pts = [r[0] for r in c.fetchall()]
+        pts.reverse()
+        custom_hist[svc['id']] = pts
+
     c.execute('SELECT timestamp, username, ssh_up, http_up, ftp_up FROM checks ORDER BY id DESC LIMIT 10')
     checks = c.fetchall()
+
+    custom_recent = {}
+    for svc in custom_svcs_meta:
+        c.execute('SELECT timestamp, up FROM custom_service_checks WHERE service_id=? ORDER BY id DESC LIMIT 10', (svc['id'],))
+        custom_recent[str(svc['id'])] = [{"time": r[0], "up": bool(r[1])} for r in c.fetchall()]
+
     conn.close()
 
+    n = len(rows)
+    history_out = []
+    for i, row in enumerate(rows):
+        entry = {"time": row[0], "ssh": row[1], "http": row[2], "ftp": row[3], "custom": {}}
+        for svc in custom_svcs_meta:
+            pts      = custom_hist[svc['id']]
+            hist_idx = len(pts) - n + i
+            entry["custom"][str(svc['id'])] = pts[hist_idx] if 0 <= hist_idx < len(pts) else None
+        history_out.append(entry)
+
     return jsonify({
-        "current_state": current_state,
-        "history": [{"time": r[0], "ssh": r[1], "http": r[2], "ftp": r[3]} for r in rows],
-        "recent_checks": [{"time": r[0], "user": r[1], "ssh_up": bool(r[2]), "http_up": bool(r[3]), "ftp_up": bool(r[4])} for r in checks]
+        "current_state":       current_state,
+        "history":             history_out,
+        "recent_checks":       [{"time": r[0], "user": r[1], "ssh_up": bool(r[2]), "http_up": bool(r[3]), "ftp_up": bool(r[4])} for r in checks],
+        "custom_services":     [
+            {
+                "id":    svc['id'],
+                "name":  svc['name'],
+                "color": svc['color'],
+                "up":    custom_service_state.get(svc['id'], {}).get("up", False),
+                "score": custom_scores.get(svc['id'], 0),
+            }
+            for svc in custom_svcs_meta
+        ],
+        "custom_recent_checks": custom_recent,
     })
 
 @app.route('/api/logs')
